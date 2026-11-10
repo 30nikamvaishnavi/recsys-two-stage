@@ -1,0 +1,9 @@
+FROM apache/airflow:2.9.3-python3.10
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends openjdk-17-jre-headless libgomp1 && rm -rf /var/lib/apt/lists/*
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+USER airflow
+# Training stack lives in its own venv so it cannot conflict with Airflow's pinned dependencies.
+COPY requirements.txt /tmp/requirements.txt
+RUN python -m venv /home/airflow/venv && /home/airflow/venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt
+ENV RECSYS_PY=/home/airflow/venv/bin/python RECSYS_HOME=/opt/recsys AIRFLOW__CORE__LOAD_EXAMPLES=false

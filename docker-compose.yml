@@ -1,0 +1,58 @@
+# One command brings up the whole system:   docker compose up --build
+# Memory limits sum to ~9.3 GB: fits a 16 GB laptop with WSL2 capped at 10-12 GB. Train BEFORE
+# starting the stack (make smoke / make train ...) so artifacts/ and model_repository/ exist.
+x-mode: &mode ${RECSYS_MODE:-sample}
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    mem_limit: 320m
+    ports: ["6379:6379"]
+    healthcheck: {test: ["CMD", "redis-cli", "ping"], interval: 5s, retries: 10}
+
+  triton:
+    image: nvcr.io/nvidia/tritonserver:24.08-py3     # CPU-only: models use KIND_CPU
+    command: ["tritonserver", "--model-repository=/models", "--model-control-mode=explicit", "--load-model=*", "--log-verbose=0"]
+    volumes: ["./model_repository:/models:ro"]
+    mem_limit: 2g
+    shm_size: 512m
+    ports: ["8000:8000", "8001:8001", "8002:8002"]
+    healthcheck: {test: ["CMD", "curl", "-sf", "http://localhost:8000/v2/health/ready"], interval: 10s, retries: 20, start_period: 20s}
+
+  api:
+    build: {context: ., dockerfile: docker/Dockerfile.api}
+    environment: {RECSYS_MODE: *mode, REDIS_URL: "redis://redis:6379/0", TRITON_URL: "triton:8000", RECSYS_BACKEND: "${RECSYS_BACKEND:-triton}", RECSYS_HOME: /app}
+    volumes: ["./artifacts:/app/artifacts", "./model_repository:/app/model_repository:ro", "./logs:/app/logs"]
+    mem_limit: 1500m
+    ports: ["8080:8080"]
+    depends_on: {redis: {condition: service_healthy}, triton: {condition: service_healthy}}
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.14.3
+    command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "5000", "--backend-store-uri", "sqlite:////mlflow/mlflow.db", "--default-artifact-root", "/mlflow/artifacts"]
+    volumes: ["./artifacts/mlflow_server:/mlflow"]
+    mem_limit: 512m
+    ports: ["5000:5000"]
+
+  streamlit:
+    build: {context: ., dockerfile: docker/Dockerfile.app}
+    environment: {API_URL: "http://api:8080", RECSYS_MODE: *mode}
+    volumes: ["./artifacts:/app/artifacts:ro"]
+    mem_limit: 700m
+    ports: ["8501:8501"]
+    depends_on: [api]
+
+  airflow:
+    build: {context: ., dockerfile: docker/Dockerfile.airflow}
+    command: ["airflow", "standalone"]
+    environment:
+      RECSYS_MODE: *mode
+      RECSYS_HOME: /opt/recsys
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      REDIS_URL: redis://redis:6379/0
+      TRITON_URL: triton:8000
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    volumes: [".:/opt/recsys", "./dags:/opt/airflow/dags"]
+    mem_limit: 4g
+    ports: ["8081:8080"]   # UI at http://localhost:8081 (credentials printed in `docker compose logs airflow`)
+    depends_on: [redis, mlflow]
