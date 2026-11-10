@@ -1,0 +1,134 @@
+# Central configuration. Every stage reads this file; mode overrides are merged on top.
+# Select a mode with RECSYS_MODE=smoke|sample|full or --mode.
+mode: sample
+
+paths:
+  data_raw: data/raw
+  data_processed: data/processed
+  features: artifacts/features
+  models: artifacts/models
+  serving: artifacts/serving
+  reports: artifacts/reports
+  production: artifacts/production
+  model_repository: model_repository
+  logs: logs
+
+data:
+  dataset: movielens-25m          # movielens-25m | synthetic
+  url: https://files.grouplens.org/datasets/movielens/ml-25m.zip
+  positive_threshold: 4.0         # rating >= threshold => positive implicit feedback
+  min_user_interactions: 5
+  user_sample_frac: 0.2           # SAMPLE mode: fraction of users kept (deterministic)
+  seed: 42
+  synthetic: {n_users: 3000, n_items: 1500, n_tags: 40, mean_events: 55}
+
+split:
+  # Global timestamp quantiles. train = retrieval window + ranker window.
+  retrieval_end: 0.70   # [0, t1)   retrieval model trains here
+  ranker_end: 0.80      # [t1, t2)  ranker trains here on candidates from the retrieval model
+  val_end: 0.90         # [t2, t3)  validation;  [t3, inf) test
+
+features:
+  history_len: 20
+  genome_dim: 32
+  pop_windows_days: [7, 30]
+  n_pop_buckets: 10
+
+spark:
+  master: "local[*]"
+  driver_memory: 6g
+  shuffle_partitions: 64
+  pop_negatives_pool: 1000
+  pop_negatives_per_user: 20
+
+retrieval:
+  embedding_dim: 64
+  hidden: [128]
+  epochs: 5
+  batch_size: 4096
+  learning_rate: 0.002
+  temperature: 0.05
+  item_id_dropout: 0.2        # trains the content-only path used for cold items
+  user_id_dropout: 0.3        # trains the no-user-id path used for cold users
+  eval_users: 20000
+  ks: [10, 50, 100]
+  mf_rank: 64
+
+index:
+  target_recall: 0.95
+  n_queries: 2000
+  latency_queries: 300
+  hnsw_m: 32
+  hnsw_ef_construction: 200
+  hnsw_ef_search: [16, 64, 128, 256]
+  ivf_nlist: 256
+  ivf_nprobe: [1, 4, 16, 64]
+  pq_m: 8
+  pq_nbits: 8
+
+ranking:
+  n_candidates_train: 100
+  n_candidates_serve: 300
+  use_pop_negatives: true
+  holdout_user_frac: 0.1
+  item_emb_dim: 16
+  cross_layers: 3
+  mlp: [256, 128]
+  epochs: 6
+  batch_size: 2048
+  learning_rate: 0.001
+  max_train_users: 30000
+  eval_users: 10000
+  ablations: [full, no_cross, no_retrieval_score, no_item_content, no_user_features]
+
+coldstart:
+  min_history: 5
+  content_alpha: 0.7          # weight of content similarity vs popularity (SPARSE_HISTORY)
+  mmr_lambda: 0.7
+  onboarding_top_genres: 3
+  cold_item_min_interactions: 5
+  eval_truncations: [0, 1, 2, 3, 4]
+
+cache:
+  ttl_seconds: 900
+  pop_ttl_seconds: 3600
+  redis_url: redis://localhost:6379/0
+
+serving:
+  backend: triton                # triton | onnx
+  triton_url: localhost:8000
+  default_k: 10
+  mmr_lambda: 0.7
+  models: {user_tower: user_tower, wide_deep: ranker_wd, dcn_v2: ranker_dcn}
+
+abtest:
+  salt: recsys-ab-v1
+  arms: {A: wide_deep, B: dcn_v2}
+  n_users: 5000
+  slate_size: 10
+  relevant_click_prob: 0.65      # P(click | examined & held-out positive)
+  noise_click_prob: 0.02         # P(click | examined & not a positive)
+  examination_decay: 1.0         # P(examine rank r) = 1 / (1 + decay*log2(1+r))
+  n_bootstrap: 2000
+  alpha: 0.05
+
+mlflow:
+  experiment: recsys-two-stage
+  tracking_uri: file:./mlruns
+
+# ----------------------------------------------------------------------------------------------
+modes:
+  smoke:                         # ~minutes on the laptop; synthetic data; verifies the plumbing
+    data: {dataset: synthetic, user_sample_frac: 1.0}
+    features: {genome_dim: 8}
+    spark: {driver_memory: 2g, shuffle_partitions: 8, pop_negatives_pool: 200, pop_negatives_per_user: 10}
+    retrieval: {embedding_dim: 16, hidden: [32], epochs: 4, batch_size: 512, eval_users: 600, mf_rank: 16}
+    index: {n_queries: 300, latency_queries: 100, ivf_nlist: 16, pq_m: 4, pq_nbits: 6, hnsw_m: 16}
+    ranking: {n_candidates_train: 50, n_candidates_serve: 100, epochs: 3, batch_size: 512, mlp: [64, 32], eval_users: 600, max_train_users: 5000}
+    abtest: {n_users: 600, n_bootstrap: 500}
+  sample:
+    data: {dataset: movielens-25m, user_sample_frac: 0.2}
+  full:
+    data: {dataset: movielens-25m, user_sample_frac: 1.0}
+    retrieval: {epochs: 8}
+    ranking: {max_train_users: 60000}
