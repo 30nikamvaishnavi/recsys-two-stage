@@ -6,8 +6,7 @@ scipy==1.11.4
 scikit-learn==1.3.2
 pyyaml==6.0.1
 matplotlib==3.8.4
-tensorflow-cpu==2.15.1
-tf-keras==2.15.1
+tensorflow==2.15.1   # CPU is fine (no CUDA libs unless [and-cuda]); Keras 2 is bundled, no tf-keras needed
 tensorflow-recommenders==0.7.3
 protobuf==3.20.3
 tf2onnx==1.16.1
