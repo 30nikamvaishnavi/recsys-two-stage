@@ -1,0 +1,16 @@
+# keep the Docker build context tiny: images only COPY src/, configs/, app/, requirements-*.txt
+.git
+.venv
+data
+artifacts
+mlruns
+logs
+model_repository
+notebooks
+docs
+tests
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+spark-warehouse

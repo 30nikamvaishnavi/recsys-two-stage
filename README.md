@@ -43,12 +43,12 @@ Run `make report`; it generates `docs/results_<mode>.md` from `artifacts/reports
 ranker vs retrieval-only + ablation + calibration, cold-start curve, A/B with 95% CIs, load/cache numbers).
 **Paste your real numbers here after running** - this README intentionally contains none that were not measured on your machine.
 
-## Correctness guarantees (tested)
+## Correctness guarantees (tested on synthetic data; items marked * need TF/Spark and are verified by `make smoke`)
 - Time-based split; **counterfactual leakage tests**: rewriting the future leaves every feature unchanged.
 - Metric functions checked against hand-computed values; FAISS/NumPy index round-trip; cache TTL/invalidation; router reason codes.
 - End-to-end online pipeline with per-stage latency, seen-item filtering, graceful degradation when the model server is down.
 - A/B statistics (z-test, bootstrap CI, A/A false-positive rate, MDE) and deterministic bucketing.
-- Spark output parity vs the pandas reference engine (`tests/test_spark_parity.py`), ONNX-vs-TF numerical check at export.
+- *Spark output parity vs the pandas reference engine (`tests/test_spark_parity.py`), *ONNX-vs-TF numerical check at export.
 
 ## Honest scope notes
 The A/B test is a **simulation** (no real users) - see `docs/limitations_and_next_steps.md`. Cold start for *items* happens at

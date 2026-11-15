@@ -5,7 +5,7 @@ export TF_USE_LEGACY_KERAS=1
 PY ?= python
 ENGINE ?= spark
 
-.PHONY: setup data features train retrieval index rank coldstart export serve abtest report test lint demo smoke cache-bench load-test up down clean
+.PHONY: format setup data features train retrieval index rank coldstart export serve abtest report test lint demo smoke cache-bench load-test up down clean
 
 setup:            ## create venv + install (run inside WSL2 Ubuntu)
 	python3.10 -m venv .venv && . .venv/bin/activate && pip install -U pip && pip install -r requirements-dev.txt && pip install -e . --no-deps
@@ -41,6 +41,8 @@ demo:             ## Streamlit locally (API must be running)
 	API_URL=http://localhost:8080 streamlit run app/streamlit_app.py
 test:
 	pytest -q
+format:           ## auto-fix style (run once, then `make lint` must pass)
+	ruff check --fix src tests dags scripts app; black src tests dags scripts app
 lint:
 	ruff check src tests dags scripts app && black --check src tests dags scripts app
 smoke:            ## entire pipeline on synthetic data (a few minutes) -> proves the plumbing end to end

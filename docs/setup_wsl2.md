@@ -12,7 +12,7 @@ Everything runs on CPU inside WSL2 Ubuntu 22.04.
    ```
    then `wsl --shutdown`.
 3. Install **Docker Desktop** (WSL2 backend, enable Ubuntu integration).
-4. Install **Cursor**, add the WSL extension, "Connect to WSL", open the repo folder inside `~/`.
+4. Install **VS Code** + extensions **WSL**, **Python**, **Ruff**, **Black Formatter**, **Docker**, **GitHub Copilot** and **Copilot Chat** (all listed in `.vscode/extensions.json`). In Ubuntu run `code .` inside the repo (opens VS Code connected to WSL). Copilot reads `.github/copilot-instructions.md` (project rules).
 5. In Ubuntu: `sudo apt update && sudo apt install -y python3.10 python3.10-venv python3-pip openjdk-17-jdk git make`
    (use the deadsnakes PPA if python3.10 is missing).
 6. `git clone <your repo> && cd recsys-two-stage && make setup && source .venv/bin/activate`
