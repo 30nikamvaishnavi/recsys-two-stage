@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import subprocess
 from datetime import datetime, timedelta
 
 from airflow import DAG
@@ -22,6 +23,15 @@ HOME = os.environ.get("RECSYS_HOME", "/opt/recsys")
 ENV = {"RECSYS_MODE": MODE, "RECSYS_HOME": HOME, "PYTHONPATH": f"{HOME}/src", "TF_USE_LEGACY_KERAS": "1", "MLFLOW_TRACKING_URI": os.environ.get("MLFLOW_TRACKING_URI", "http://mlflow:5000"),
        "REDIS_URL": os.environ.get("REDIS_URL", "redis://redis:6379/0"), "TRITON_URL": os.environ.get("TRITON_URL", "triton:8000")}  # fmt: skip
 log = logging.getLogger("airflow.task")
+
+
+def gate_passes() -> bool:
+    """True if `recsys.promote gate` exits 0. Runs with the SAME env as the BashOperator tasks
+    (PYTHONPATH, RECSYS_MODE...), otherwise `recsys` is not importable and the gate would silently
+    block every promotion."""
+    r = subprocess.run([PY, "-m", "recsys.promote", "gate"], cwd=HOME, env={**os.environ, **ENV}, capture_output=True, text=True)
+    log.info("gate output:\n%s%s", r.stdout, r.stderr)
+    return r.returncode == 0
 
 
 def alert(context):
@@ -46,7 +56,7 @@ with DAG(
     retr = BashOperator(task_id="train_retrieval", bash_command=run("recsys.retrieval.train"), env=ENV, append_env=True)
     index = BashOperator(task_id="build_faiss_index", bash_command=run("recsys.index.build"), env=ENV, append_env=True)
     rank = BashOperator(task_id="train_rankers", bash_command=run("recsys.ranking.train"), env=ENV, append_env=True)
-    gate = ShortCircuitOperator(task_id="evaluation_gate", python_callable=lambda: os.system(f"cd {HOME} && {PY} -m recsys.promote gate") == 0)
+    gate = ShortCircuitOperator(task_id="evaluation_gate", python_callable=gate_passes)
     export = BashOperator(task_id="export_to_triton_repo", bash_command=run("recsys.serving.export"), env=ENV, append_env=True)
     promote = BashOperator(task_id="promote_and_reload_triton", bash_command=run("recsys.promote", "promote"), env=ENV, append_env=True)
     warm = BashOperator(task_id="warm_redis", bash_command=f"cd {HOME} && {PY} scripts/warm_cache.py", env=ENV, append_env=True)
