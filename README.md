@@ -21,7 +21,7 @@ online A/B test between two rankers.
 ```bash
 make setup && source .venv/bin/activate
 make smoke                 # whole pipeline on synthetic data in minutes -> proves everything is wired
-# real run (20% of MovieLens 25M users by default):
+# real run (10% of MovieLens 25M users by default):
 make data features train   # download+split -> Spark features -> retrieval, FAISS, rankers, cold start
 make export                # ONNX + Triton repository + serving assets
 make abtest report         # simulated A/B, writes docs/results_sample.md

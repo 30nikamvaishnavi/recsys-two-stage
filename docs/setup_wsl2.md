@@ -20,6 +20,6 @@ Everything runs on CPU inside WSL2 Ubuntu 22.04.
 Keep the repo inside the WSL filesystem (`~/`), not `/mnt/c`, for 5-10× faster I/O.
 
 ## Memory tips
-- Close Chrome while training; use `MODE=sample` (20% of users) for iteration.
+- Close Chrome while training; use `MODE=sample` (10% of users) for iteration.
 - Spark driver is capped at 6 GB (`spark.driver_memory`). Lower `ranking.max_train_users` if the ranker set OOMs.
 - Start Docker services only **after** training (`make train export`), they need ~9 GB.

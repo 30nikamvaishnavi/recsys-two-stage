@@ -6,7 +6,7 @@
    stated click model, but its CTR numbers are not predictive of real CTR. Held-out positives also under-count items a user
    would have enjoyed but never rated (exposure bias).
 2. **Implicit-feedback proxy.** Positives are ratings ≥ 4. MovieLens ratings are an explicit, self-selected signal, not impressions.
-3. **CPU-only training.** Embedding dim 64, 20% user sample by default; `full` mode uses all 25M ratings but takes hours on a laptop.
+3. **CPU-only training.** Embedding dim 64, 10% user sample by default; `full` mode uses all 25M ratings but takes hours on a laptop.
 4. **Ranker base rate.** Trained on retrieved candidates + popularity negatives, so predicted probabilities are not calibrated to
    production CTR (the calibration plot/ECE quantifies this). Platt/isotonic calibration is a next step.
 5. **Popularity features inside the training window** are computed as of the window end, not per example (no leakage across the
