@@ -21,7 +21,7 @@ from airflow.operators.python import ShortCircuitOperator
 PY = os.environ.get("RECSYS_PY", "/opt/venv/bin/python")
 MODE = os.environ.get("RECSYS_MODE", "sample")
 HOME = os.environ.get("RECSYS_HOME", "/opt/recsys")
-ENV = {"RECSYS_MODE": MODE, "RECSYS_HOME": HOME, "PYTHONPATH": f"{HOME}/src", "TF_USE_LEGACY_KERAS": "1", "MLFLOW_TRACKING_URI": os.environ.get("MLFLOW_TRACKING_URI", "http://mlflow:5000"),
+ENV = {"RECSYS_MODE": MODE, "RECSYS_HOME": HOME, "PYTHONPATH": f"{HOME}/src", "MLFLOW_TRACKING_URI": os.environ.get("MLFLOW_TRACKING_URI", "http://mlflow:5000"),
        "REDIS_URL": os.environ.get("REDIS_URL", "redis://redis:6379/0"), "TRITON_URL": os.environ.get("TRITON_URL", "triton:8000")}  # fmt: skip
 log = logging.getLogger("airflow.task")
 
