@@ -3,6 +3,7 @@ Selects the cheapest config (lowest p95) that reaches the target recall, saves i
 
     python -m recsys.index.build --mode sample
 """
+
 from __future__ import annotations
 
 import time
@@ -49,7 +50,13 @@ def run_benchmark(emb: np.ndarray, queries: np.ndarray, icfg, k: int = 100, lat_
              "memory_mb": index_bytes(a) / 1e6, **_latency(a, queries[:lat_n], k)}  # fmt: skip
         rows.append(r)
         built[name] = a
-        log.info("%s recall %.3f p95 %.3f ms mem %.1f MB", name, r["recall@100"], r["p95"], r["memory_mb"])
+        log.info(
+            "%s recall %.3f p95 %.3f ms mem %.1f MB",
+            name,
+            r["recall@100"],
+            r["p95"],
+            r["memory_mb"],
+        )
 
     add("flat", flat, {})
     if HAVE_FAISS:
@@ -75,9 +82,19 @@ def plot(rows, out) -> None:
     for kind, mk in (("flat", "s"), ("hnsw", "o"), ("ivfpq", "^")):
         rr = [r for r in rows if r["kind"] == kind]
         if rr:
-            ax[0].scatter([r["p95"] for r in rr], [r["recall@100"] for r in rr], marker=mk, s=60, label=kind)
-            ax[1].scatter([r["memory_mb"] for r in rr], [r["recall@100"] for r in rr], marker=mk, s=60, label=kind)
-    ax[0].set(xlabel="p95 latency per query (ms)", ylabel="recall@100 vs exact", title="Recall vs latency")
+            ax[0].scatter(
+                [r["p95"] for r in rr], [r["recall@100"] for r in rr], marker=mk, s=60, label=kind
+            )
+            ax[1].scatter(
+                [r["memory_mb"] for r in rr],
+                [r["recall@100"] for r in rr],
+                marker=mk,
+                s=60,
+                label=kind,
+            )
+    ax[0].set(
+        xlabel="p95 latency per query (ms)", ylabel="recall@100 vs exact", title="Recall vs latency"
+    )
     ax[1].set(xlabel="index memory (MB)", ylabel="recall@100 vs exact", title="Recall vs memory")
     for a in ax:
         a.grid(alpha=0.3)
@@ -97,17 +114,38 @@ def main():
     # query set: real user embeddings from the retrieval model for val users
     from ..retrieval import two_tower as tt
 
-    ut, _ = tt.load_towers(cfg, fs.meta, fs.item_table("rank").genres, fs.item_table("rank").n_pop_buckets, mdir)
+    ut, _ = tt.load_towers(
+        cfg, fs.meta, fs.item_table("rank").genres, fs.item_table("rank").n_pop_buckets, mdir
+    )
     states = fs.states("val").subsample(icfg["n_queries"], 0)
     q = tt.embed_users(ut, states)
     rows, chosen, _ = run_benchmark(emb, q, icfg, 100, icfg["latency_queries"])
-    best = build(chosen["kind"], emb, icfg, **{k: v for k, v in chosen["params"].items() if k in ("efSearch", "nprobe")})
+    best = build(
+        chosen["kind"],
+        emb,
+        icfg,
+        **{k: v for k, v in chosen["params"].items() if k in ("efSearch", "nprobe")},
+    )
     sdir = path(cfg, "serving", create=True)
     sdir.mkdir(parents=True, exist_ok=True)
     best.save(sdir)
     plot(rows, path(cfg, "reports", "faiss_benchmark.png", create=True))
-    save_json({"results": rows, "chosen": chosen, "faiss": HAVE_FAISS, "n_items": len(emb), "dim": emb.shape[1]}, path(cfg, "reports", "faiss_benchmark.json", create=True))
-    log.info("chosen index: %s (recall@100 %.3f, p95 %.3f ms)", chosen["name"], chosen["recall@100"], chosen["p95"])
+    save_json(
+        {
+            "results": rows,
+            "chosen": chosen,
+            "faiss": HAVE_FAISS,
+            "n_items": len(emb),
+            "dim": emb.shape[1],
+        },
+        path(cfg, "reports", "faiss_benchmark.json", create=True),
+    )
+    log.info(
+        "chosen index: %s (recall@100 %.3f, p95 %.3f ms)",
+        chosen["name"],
+        chosen["recall@100"],
+        chosen["p95"],
+    )
 
 
 if __name__ == "__main__":

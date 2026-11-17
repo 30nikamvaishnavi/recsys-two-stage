@@ -5,6 +5,7 @@
 A candidate is promoted only if retrieval recall@100 and the best ranker NDCG@10 are not worse than
 the current production snapshot (tolerance configurable). First run always promotes.
 """
+
 from __future__ import annotations
 
 import shutil

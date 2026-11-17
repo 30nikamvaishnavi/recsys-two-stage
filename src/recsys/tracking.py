@@ -1,4 +1,5 @@
 """MLflow wrapper that degrades to a no-op when MLflow is unavailable."""
+
 from __future__ import annotations
 
 import os

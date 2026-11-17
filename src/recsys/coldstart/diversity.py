@@ -1,10 +1,13 @@
 """Maximal Marginal Relevance re-ranking (relevance vs redundancy on content vectors)."""
+
 from __future__ import annotations
 
 import numpy as np
 
 
-def mmr(items: np.ndarray, rel: np.ndarray, content: np.ndarray, k: int, lam: float = 0.7) -> np.ndarray:
+def mmr(
+    items: np.ndarray, rel: np.ndarray, content: np.ndarray, k: int, lam: float = 0.7
+) -> np.ndarray:
     """Greedy MMR. items (n,), rel (n,) relevance, content (n_items+1, d) L2-normalised vectors.
     Returns the selected positions (indices into `items`) in pick order."""
     n = len(items)

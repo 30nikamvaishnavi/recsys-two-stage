@@ -1,9 +1,9 @@
 """Whole online path + simulated A/B using the real Recommender and a numpy fake model server."""
+
 import numpy as np
 from helpers import FakeBackend
-from test_pipeline import make_rec, stack  # noqa: F401
-
 from recsys.abtest import simulate as SIM
+from test_pipeline import make_rec, stack  # noqa: F401
 
 
 def test_end_to_end_ab_replay_on_real_pipeline(stack):  # noqa: F811
@@ -14,7 +14,12 @@ def test_end_to_end_ab_replay_on_real_pipeline(stack):  # noqa: F811
     import pandas as pd
 
     sub = st.sample(min(300, len(st)), random_state=0)
-    users = pd.DataFrame({"user_id": [int(um[u]) for u in sub["user_idx"]], "relevant": [set(items.loc[t].tolist()) for t in sub["targets"]]})
+    users = pd.DataFrame(
+        {
+            "user_id": [int(um[u]) for u in sub["user_idx"]],
+            "relevant": [set(items.loc[t].tolist()) for t in sub["targets"]],
+        }
+    )
     acfg = {**w.cfg["abtest"], "n_bootstrap": 200}
 
     def rec_fn(u, variant, k):
@@ -23,9 +28,21 @@ def test_end_to_end_ab_replay_on_real_pipeline(stack):  # noqa: F811
 
     df = SIM.run_replay(rec_fn, users, acfg)
     res = SIM.analyze(df, acfg)
-    assert res["simulation"] and set(res["arms"]) == {"A", "B"} and res["n_users"]["A"] + res["n_users"]["B"] == len(users)
-    assert 0 <= res["arms"]["A"]["ctr"] <= 1 and res["decision"]["decision"] in {"SHIP_B", "KEEP_A", "INCONCLUSIVE"}
-    assert df["strategy"].isin(["two_stage", "content_blend", "genre_popularity", "global_popularity"]).all()
+    assert (
+        res["simulation"]
+        and set(res["arms"]) == {"A", "B"}
+        and res["n_users"]["A"] + res["n_users"]["B"] == len(users)
+    )
+    assert 0 <= res["arms"]["A"]["ctr"] <= 1 and res["decision"]["decision"] in {
+        "SHIP_B",
+        "KEEP_A",
+        "INCONCLUSIVE",
+    }
+    assert (
+        df["strategy"]
+        .isin(["two_stage", "content_blend", "genre_popularity", "global_popularity"])
+        .all()
+    )
     # personalised retrieval must beat random slate on held-out future positives
     assert df["recall@10"].mean() > 10 / w.n_items * 3
 

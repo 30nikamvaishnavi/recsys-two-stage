@@ -4,6 +4,7 @@
  features -> ranker (Triton) -> MMR diversity -> cache -> response.  Every stage is timed.
 Any model failure degrades to popularity (reason code MODEL_UNAVAILABLE_POPULARITY) instead of a 5xx.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,7 +16,7 @@ import numpy as np
 from ..cache.redis_cache import RecCache
 from ..coldstart.diversity import mmr
 from ..coldstart.router import WARM, ColdStartRouter
-from ..features.common import GENRES, GENRE_IDX
+from ..features.common import GENRE_IDX, GENRES
 from ..features.item_table import ItemTable
 from ..ranking.data import candidate_dense
 from ..utils import Timer, get_logger
@@ -28,7 +29,15 @@ VARIANTS = ("wide_deep", "dcn_v2")
 class Recommender:
     def __init__(self, backend, ann, item_emb: np.ndarray, table: ItemTable, items_df, store: UserStateStore,
                  cache: RecCache, router: ColdStartRouter, cfg, log_dir: Path | None = None):  # fmt: skip
-        self.backend, self.ann, self.emb, self.table, self.store, self.cache, self.router = backend, ann, item_emb, table, store, cache, router
+        self.backend, self.ann, self.emb, self.table, self.store, self.cache, self.router = (
+            backend,
+            ann,
+            item_emb,
+            table,
+            store,
+            cache,
+            router,
+        )
         self.cfg = cfg
         self.n_cand = cfg["ranking"]["n_candidates_serve"]
         self.mmr_lambda = cfg["serving"]["mmr_lambda"]
@@ -54,7 +63,14 @@ class Recommender:
             for i, r, q, s in zip(items, ret, rank_sc, final, strict=True)
         ]  # fmt: skip
 
-    def recommend(self, user_id: int, k: int = 10, variant: str = "dcn_v2", onboarding_genres: list[str] | None = None, use_cache: bool = True) -> dict:
+    def recommend(
+        self,
+        user_id: int,
+        k: int = 10,
+        variant: str = "dcn_v2",
+        onboarding_genres: list[str] | None = None,
+        use_cache: bool = True,
+    ) -> dict:
         if variant not in VARIANTS:
             raise ValueError(f"variant must be one of {VARIANTS}")
         lat: dict[str, float] = {}
@@ -68,7 +84,11 @@ class Recommender:
             lat["cache"] = t.ms
             if hit:
                 total.__exit__()
-                hit["meta"] = {**hit["meta"], "cache_hit": True, "latency_ms": {**lat, "total": total.ms}}
+                hit["meta"] = {
+                    **hit["meta"],
+                    "cache_hit": True,
+                    "latency_ms": {**lat, "total": total.ms},
+                }
                 return hit
 
         with Timer() as t:
@@ -89,7 +109,9 @@ class Recommender:
                 decision = self.router.route(state.n_pos, models_ok=False)
         if items is None or len(items) == 0:
             with Timer() as t:
-                items, final = self.router.recommend(decision, arrs, 0, k, seen, state.onboarding_genres or onboarding_genres)
+                items, final = self.router.recommend(
+                    decision, arrs, 0, k, seen, state.onboarding_genres or onboarding_genres
+                )
             lat["fallback"] = t.ms
             ret = rk = [None] * len(items)
 
@@ -135,12 +157,39 @@ class Recommender:
         if idx is None:
             raise KeyError(item_id)
         cand, sc = self.ann.search(self.emb[idx][None, :], k + 1)
-        out = [(int(c), float(s)) for c, s in zip(cand[0], sc[0], strict=True) if c not in (0, idx)][:k]
-        return [{"item_id": int(self.movie_id[c]), "title": self.titles[c], "genres": self.genres_txt[c], "similarity": s, "is_cold_item": bool(self.table.cold_mask[c])} for c, s in out]
+        out = [
+            (int(c), float(s)) for c, s in zip(cand[0], sc[0], strict=True) if c not in (0, idx)
+        ][:k]
+        return [
+            {
+                "item_id": int(self.movie_id[c]),
+                "title": self.titles[c],
+                "genres": self.genres_txt[c],
+                "similarity": s,
+                "is_cold_item": bool(self.table.cold_mask[c]),
+            }
+            for c, s in out
+        ]
 
-    def feedback(self, user_id: int, item_id: int, event: str, rating: float | None = None, position: int | None = None, variant: str | None = None) -> dict:
+    def feedback(
+        self,
+        user_id: int,
+        item_id: int,
+        event: str,
+        rating: float | None = None,
+        position: int | None = None,
+        variant: str | None = None,
+    ) -> dict:
         idx = self.idx_of_movie.get(int(item_id))
-        rec = {"ts": time.time(), "user_id": user_id, "item_id": item_id, "event": event, "rating": rating, "position": position, "variant": variant}
+        rec = {
+            "ts": time.time(),
+            "user_id": user_id,
+            "item_id": item_id,
+            "event": event,
+            "rating": rating,
+            "position": position,
+            "variant": variant,
+        }
         if self.log_dir:
             self.log_dir.mkdir(parents=True, exist_ok=True)
             with open(self.log_dir / "feedback.jsonl", "a") as f:

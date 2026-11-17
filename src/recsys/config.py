@@ -1,4 +1,5 @@
 """YAML configuration with mode overrides and attribute access."""
+
 from __future__ import annotations
 
 import argparse
@@ -40,7 +41,9 @@ def _merge(base: dict, over: dict) -> dict:
     return out
 
 
-def load_config(path: str | Path | None = None, mode: str | None = None, overrides: dict | None = None) -> Cfg:
+def load_config(
+    path: str | Path | None = None, mode: str | None = None, overrides: dict | None = None
+) -> Cfg:
     """Load default.yaml, apply `modes[mode]` then explicit overrides."""
     with open(path or DEFAULT_CONFIG) as f:
         raw = yaml.safe_load(f)
@@ -69,7 +72,13 @@ def path(cfg: Cfg, key: str, *parts: str, create: bool = False) -> Path:
     """Resolve cfg.paths[key]/parts relative to the repo root (or env RECSYS_HOME)."""
     base = Path(os.environ.get("RECSYS_HOME", ROOT))
     p = base / cfg["paths"][key]
-    if cfg["mode"] != "full" and key in {"data_processed", "features", "models", "serving", "reports"}:
+    if cfg["mode"] != "full" and key in {
+        "data_processed",
+        "features",
+        "models",
+        "serving",
+        "reports",
+    }:
         p = p / cfg["mode"]  # keep smoke/sample/full artifacts separate
     p = p.joinpath(*parts)
     if create:

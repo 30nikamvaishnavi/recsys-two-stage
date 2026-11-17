@@ -1,4 +1,5 @@
 """ItemTable: dense per-item feature arrays as of a cutoff timestamp (row 0 = padding/unknown)."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,14 +13,14 @@ from .common import G, bucketize, multi_hot, parse_genres, popularity_edges, yea
 
 @dataclass
 class ItemTable:
-    genres: np.ndarray       # (n+1, G) float32 multi-hot
+    genres: np.ndarray  # (n+1, G) float32 multi-hot
     year_bucket: np.ndarray  # (n+1,) int32
-    pop: np.ndarray          # (n+1, 3) float32  log1p[all, 7d, 30d] positive counts before cutoff
-    pop_bucket: np.ndarray   # (n+1,) int32
-    pop_rank_pct: np.ndarray # (n+1,) float32 in [0,1], 1 = most popular
-    genome: np.ndarray       # (n+1, D) float32 (zeros where unavailable)
-    has_genome: np.ndarray   # (n+1,) float32
-    n_pos: np.ndarray        # (n+1,) int32 raw positive count before cutoff (0 => cold item)
+    pop: np.ndarray  # (n+1, 3) float32  log1p[all, 7d, 30d] positive counts before cutoff
+    pop_bucket: np.ndarray  # (n+1,) int32
+    pop_rank_pct: np.ndarray  # (n+1,) float32 in [0,1], 1 = most popular
+    genome: np.ndarray  # (n+1, D) float32 (zeros where unavailable)
+    has_genome: np.ndarray  # (n+1,) float32
+    n_pos: np.ndarray  # (n+1,) int32 raw positive count before cutoff (0 => cold item)
     n_pop_buckets: int
 
     @property
@@ -48,15 +49,23 @@ class ItemTable:
     # ---- (de)serialisation -------------------------------------------------------------------
     def save(self, p: Path) -> None:
         p.parent.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(p, n_pop_buckets=self.n_pop_buckets, **{k: v for k, v in self.__dict__.items() if k != "n_pop_buckets"})
+        np.savez_compressed(
+            p,
+            n_pop_buckets=self.n_pop_buckets,
+            **{k: v for k, v in self.__dict__.items() if k != "n_pop_buckets"},
+        )
 
     @classmethod
     def load(cls, p: Path) -> ItemTable:
         z = np.load(p)
-        return cls(**{k: (int(z[k]) if k == "n_pop_buckets" else z[k]) for k in cls.__dataclass_fields__})
+        return cls(
+            **{k: (int(z[k]) if k == "n_pop_buckets" else z[k]) for k in cls.__dataclass_fields__}
+        )
 
 
-def build_item_table(items: pd.DataFrame, pop_df: pd.DataFrame, genome_df: pd.DataFrame | None, cfg) -> ItemTable:
+def build_item_table(
+    items: pd.DataFrame, pop_df: pd.DataFrame, genome_df: pd.DataFrame | None, cfg
+) -> ItemTable:
     """Assemble from: processed items, popularity counts (item_idx,pop_all,pop_7d,pop_30d) and
     genome vectors (item_idx, genome: array<float>). Identical for the Spark and pandas engines."""
     n = int(items["item_idx"].max())
@@ -69,7 +78,11 @@ def build_item_table(items: pd.DataFrame, pop_df: pd.DataFrame, genome_df: pd.Da
     raw = np.zeros((n + 1, 3), dtype=np.float64)
     p = pop_df.set_index("item_idx")
     ids = p.index.to_numpy()
-    raw[ids, 0], raw[ids, 1], raw[ids, 2] = p["pop_all"].to_numpy(), p["pop_7d"].to_numpy(), p["pop_30d"].to_numpy()
+    raw[ids, 0], raw[ids, 1], raw[ids, 2] = (
+        p["pop_all"].to_numpy(),
+        p["pop_7d"].to_numpy(),
+        p["pop_30d"].to_numpy(),
+    )
     n_pos = raw[:, 0].astype(np.int32)
     edges = popularity_edges(raw[1:, 0], cfg["features"]["n_pop_buckets"])
     pb = bucketize(raw[:, 0], edges)
@@ -85,4 +98,14 @@ def build_item_table(items: pd.DataFrame, pop_df: pd.DataFrame, genome_df: pd.Da
         vecs = np.stack(genome_df["genome"].to_numpy()).astype(np.float32)[:, :D]
         genome[gi, : vecs.shape[1]] = vecs / (vecs.std() + 1e-6)
         has[gi] = 1.0
-    return ItemTable(genres, yb, np.log1p(raw).astype(np.float32), pb, pct, genome, has, n_pos, int(cfg["features"]["n_pop_buckets"]))
+    return ItemTable(
+        genres,
+        yb,
+        np.log1p(raw).astype(np.float32),
+        pb,
+        pct,
+        genome,
+        has,
+        n_pos,
+        int(cfg["features"]["n_pop_buckets"]),
+    )

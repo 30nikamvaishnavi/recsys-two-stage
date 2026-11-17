@@ -3,6 +3,7 @@
     python -m recsys.features.build --engine spark     # default, needs Java 17
     python -m recsys.features.build --engine pandas    # reference/fallback engine
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -29,12 +30,23 @@ def run_pandas(cfg) -> Path:
     pf.train_examples(inter, N).to_parquet(out / "train_examples.parquet", index=False)
     pops = {}
     for stage, (cut, end) in pf.stage_windows(ds.boundaries).items():
-        pf.user_state(inter, cut, end, N).to_parquet(out / f"user_state_{stage}.parquet", index=False)
+        pf.user_state(inter, cut, end, N).to_parquet(
+            out / f"user_state_{stage}.parquet", index=False
+        )
         pops[stage] = pf.item_pop(inter, cut, cfg["features"]["pop_windows_days"], n_items)
         pops[stage].to_parquet(out / f"item_pop_{stage}.parquet", index=False)
-    pf.genome_vectors(ds.genome, cfg["features"]["genome_dim"]).to_parquet(out / "genome_vectors.parquet", index=False)
+    pf.genome_vectors(ds.genome, cfg["features"]["genome_dim"]).to_parquet(
+        out / "genome_vectors.parquet", index=False
+    )
     c = cfg["coldstart"]
-    ci, cu = pf.cold_lists(inter, ds.boundaries["t3"], n_items, n_users, c["min_history"], c["cold_item_min_interactions"])
+    ci, cu = pf.cold_lists(
+        inter,
+        ds.boundaries["t3"],
+        n_items,
+        n_users,
+        c["min_history"],
+        c["cold_item_min_interactions"],
+    )
     ci.to_parquet(out / "cold_items.parquet", index=False)
     cu.to_parquet(out / "cold_users.parquet", index=False)
     rank_states = pd.read_parquet(out / "user_state_rank.parquet")
@@ -56,7 +68,9 @@ def assemble(cfg) -> None:
         tab.save(out / f"item_table_{stage}.npz")
     inter = pd.read_parquet(proc / "interactions.parquet", columns=["item_idx", "is_pos", "stage"])
     n_items = int(items["item_idx"].max())
-    cnt = np.bincount(inter.loc[inter["is_pos"] & (inter["stage"] == 0), "item_idx"], minlength=n_items + 1).astype(np.float64)
+    cnt = np.bincount(
+        inter.loc[inter["is_pos"] & (inter["stage"] == 0), "item_idx"], minlength=n_items + 1
+    ).astype(np.float64)
     q = np.maximum(cnt, 1.0) / cnt.sum()  # sampling prob. of an item as in-batch positive
     np.save(out / "item_q.npy", q.astype(np.float32))
     n_users = int(pd.read_parquet(proc / "user_map.parquet")["user_idx"].max())
@@ -68,7 +82,9 @@ def assemble(cfg) -> None:
 
 
 def main():
-    cfg, args = parse_cfg("Build features", [("--engine", {"default": "spark", "choices": ["spark", "pandas"]})])
+    cfg, args = parse_cfg(
+        "Build features", [("--engine", {"default": "spark", "choices": ["spark", "pandas"]})]
+    )
     engine = args.engine
     if engine == "spark":
         try:

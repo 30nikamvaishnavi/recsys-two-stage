@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-
 from recsys.features import common as C
 from recsys.features import pandas_features as pf
 from recsys.features.item_table import ItemTable
@@ -15,7 +14,9 @@ def tiny():
         (2, 1, 4.0, 3 * DAY, 0), (2, 3, 2.0, 4 * DAY, 0), (2, 5, 4.0, 12 * DAY, 1),
     ]  # fmt: skip
     df = pd.DataFrame(rows, columns=["user_idx", "item_idx", "rating", "ts", "stage"])
-    df = df.drop_duplicates(["user_idx", "item_idx"], keep="first")  # (1,2) twice -> keep first like real cleaning
+    df = df.drop_duplicates(
+        ["user_idx", "item_idx"], keep="first"
+    )  # (1,2) twice -> keep first like real cleaning
     df["is_pos"] = df["rating"] >= 4.0
     return df.astype({"user_idx": "int32", "item_idx": "int32", "rating": "float32", "ts": "int64"})
 
@@ -60,15 +61,33 @@ def test_user_state_hand_computed():
 
 def test_new_user_with_no_history_has_zero_state():
     d = tiny()
-    d = pd.concat([d, pd.DataFrame({"user_idx": [3], "item_idx": [1], "rating": [5.0], "ts": [12 * DAY], "stage": [1], "is_pos": [True]})])
+    d = pd.concat(
+        [
+            d,
+            pd.DataFrame(
+                {
+                    "user_idx": [3],
+                    "item_idx": [1],
+                    "rating": [5.0],
+                    "ts": [12 * DAY],
+                    "stage": [1],
+                    "is_pos": [True],
+                }
+            ),
+        ]
+    )
     st = pf.user_state(d, 5 * DAY, 20 * DAY, 3).set_index("user_idx")
-    assert st.loc[3, "n_all"] == 0 and st.loc[3, "n_pos"] == 0 and (st.loc[3, "hist_items"] == 0).all()
+    assert (
+        st.loc[3, "n_all"] == 0 and st.loc[3, "n_pos"] == 0 and (st.loc[3, "hist_items"] == 0).all()
+    )
 
 
 def test_item_pop_windows():
     d = tiny()
     p = pf.item_pop(d, cutoff=12 * DAY, windows_days=[7, 30], n_items=5).set_index("item_idx")
-    assert p.loc[1, "pop_all"] == 2 and p.loc[3, "pop_all"] == 1 and p.loc[5, "pop_all"] == 0  # (5 @12d is NOT < cutoff)
+    assert (
+        p.loc[1, "pop_all"] == 2 and p.loc[3, "pop_all"] == 1 and p.loc[5, "pop_all"] == 0
+    )  # (5 @12d is NOT < cutoff)
     assert p.loc[4, "pop_7d"] == 1 and p.loc[1, "pop_7d"] == 0 and p.loc[1, "pop_30d"] == 2
 
 
@@ -77,7 +96,11 @@ def test_train_examples_counts_prior_activity():
     ex = pf.train_examples(d, 3).sort_values(["user_idx", "ts"]).reset_index(drop=True)
     assert (ex["stage"] if "stage" in ex else pd.Series([0])).max() == 0
     r = ex[(ex.user_idx == 1) & (ex.item_idx == 3)].iloc[0]
-    assert r["n_prior"] == 2 and np.isclose(r["avg_prior_rating"], 4.0) and np.isclose(r["days_since_prev"], 1.0)
+    assert (
+        r["n_prior"] == 2
+        and np.isclose(r["avg_prior_rating"], 4.0)
+        and np.isclose(r["days_since_prev"], 1.0)
+    )
     assert [i for i in r["hist_items"] if i] == [1]  # item 2 was rated 3.0 -> not a positive
 
 
@@ -86,11 +109,20 @@ def test_seen_index_masks_scores():
     seen = SeenIndex(d, 5 * DAY, n_users=3, n_items=5)
     sc = np.ones((2, 6), np.float32)
     seen.mask_scores(sc, np.array([1, 2]))
-    assert np.isinf(sc[0, [1, 2, 3]]).all() and np.isfinite(sc[0, [4, 5]]).all() and np.isinf(sc[1, [1, 3]]).all()
+    assert (
+        np.isinf(sc[0, [1, 2, 3]]).all()
+        and np.isfinite(sc[0, [4, 5]]).all()
+        and np.isinf(sc[1, [1, 3]]).all()
+    )
 
 
 def test_truncate_history_keeps_most_recent():
-    s = StateArrays(np.array([1]), np.array([[1, 2, 3, 4, 0]], np.int32), np.zeros((1, 3), np.float32), np.array([4], np.int32))
+    s = StateArrays(
+        np.array([1]),
+        np.array([[1, 2, 3, 4, 0]], np.int32),
+        np.zeros((1, 3), np.float32),
+        np.array([4], np.int32),
+    )
     t = s.truncate_history(2)
     assert t.hist[0].tolist() == [3, 4, 0, 0, 0] and t.n_pos[0] == 2
 
@@ -103,4 +135,7 @@ def test_item_table_roundtrip(world, tmp_path):
     assert t.genres[0].sum() == 0 and t.pop[0].sum() == 0  # padding row
     assert t.cold_mask.sum() >= 0 and not t.cold_mask[0]
     v = t.content_vectors()
-    assert np.allclose(np.linalg.norm(v[1:], axis=1), 1.0, atol=1e-4) or (np.linalg.norm(v[1:], axis=1) > 0).all()
+    assert (
+        np.allclose(np.linalg.norm(v[1:], axis=1), 1.0, atol=1e-4)
+        or (np.linalg.norm(v[1:], axis=1) > 0).all()
+    )

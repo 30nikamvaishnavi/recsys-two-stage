@@ -1,8 +1,8 @@
 """Warm Redis: popularity lists (global + per genre) and recommendations for the most active users."""
+
 from __future__ import annotations
 
 import numpy as np
-
 from recsys.config import parse_cfg
 from recsys.features.common import GENRES
 from recsys.serving.assets import load_recommender

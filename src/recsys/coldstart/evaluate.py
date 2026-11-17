@@ -3,6 +3,7 @@ warm validation users (targets unchanged), and compare strategies on the SAME us
 
 k=0 users get 'onboarding genres' = top genres of their (hidden) full history, mimicking a signup form.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -33,7 +34,10 @@ def evaluate_cold_start(router: ColdStartRouter, states: StateArrays, seen: Seen
         if k == 0:
             run("genre_popularity", lambda r: router.genre_popularity(onboard[r], kmax, seen_of(r)))
         if k >= 1:
-            run("content_blend", lambda r: router.content_blend(tr.take(np.array([r])), kmax, seen_of(r)))
+            run(
+                "content_blend",
+                lambda r: router.content_blend(tr.take(np.array([r])), kmax, seen_of(r)),
+            )
         if two_tower_retriever is not None:
             it, _ = two_tower_retriever.retrieve(tr, kmax, seen)
             res["two_tower"] = evaluate_ranked(it, tr.targets, ks)

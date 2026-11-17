@@ -1,6 +1,6 @@
 """Time-based split + point-in-time (no-leakage) guarantees."""
-import numpy as np
 
+import numpy as np
 from recsys.data.validate import validate_interactions
 from recsys.features import pandas_features as pf
 
@@ -51,8 +51,13 @@ def test_user_state_history_uses_only_past(world):
     common = a.index.intersection(b.index)
     assert len(common) > 50
     for col in ("n_all", "n_pos", "avg_rating", "days_since_last"):
-        assert np.allclose(a.loc[common, col].astype(float), b.loc[common, col].astype(float), equal_nan=True), col
-    assert all(np.array_equal(x, y) for x, y in zip(a.loc[common, "hist_items"], b.loc[common, "hist_items"], strict=True))
+        assert np.allclose(
+            a.loc[common, col].astype(float), b.loc[common, col].astype(float), equal_nan=True
+        ), col
+    assert all(
+        np.array_equal(x, y)
+        for x, y in zip(a.loc[common, "hist_items"], b.loc[common, "hist_items"], strict=True)
+    )
 
 
 def test_train_examples_only_stage0_and_history_strictly_earlier(world):
@@ -60,7 +65,9 @@ def test_train_examples_only_stage0_and_history_strictly_earlier(world):
     assert ex["ts"].max() < world.ds.boundaries["t1"]
     # history of an example must be positives with earlier-or-equal order of the same user
     u = ex["user_idx"].iloc[len(ex) // 2]
-    rows = inter[(inter["user_idx"] == u) & inter["is_pos"] & (inter["stage"] == 0)].sort_values(["ts", "item_idx"])
+    rows = inter[(inter["user_idx"] == u) & inter["is_pos"] & (inter["stage"] == 0)].sort_values(
+        ["ts", "item_idx"]
+    )
     e = ex[ex["user_idx"] == u].sort_values(["ts", "item_idx"])
     for pos, (_, r) in enumerate(e.iterrows()):
         expected = rows["item_idx"].iloc[max(0, pos - 20) : pos].tolist()

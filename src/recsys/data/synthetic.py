@@ -4,6 +4,7 @@ Used for smoke tests, CI and offline development. It has real structure: user ta
 item latent factors tied to genres, power-law popularity, items released over time (=> cold items),
 users joining over time (=> cold users), and genome tag relevances derived from item factors.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -19,7 +20,9 @@ GENRES = [
 T0 = 1_420_070_400  # 2015-01-01 UTC
 
 
-def generate(out_dir: str | Path, n_users=3000, n_items=1500, n_tags=40, mean_events=55, seed=0, days=1200):
+def generate(
+    out_dir: str | Path, n_users=3000, n_items=1500, n_tags=40, mean_events=55, seed=0, days=1200
+):
     rng = np.random.default_rng(seed)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -42,7 +45,10 @@ def generate(out_dir: str | Path, n_users=3000, n_items=1500, n_tags=40, mean_ev
         {
             "movieId": movie_ids,
             "title": [f"Movie {i} ({year[i]})" for i in range(n_items)],
-            "genres": ["|".join(GENRES[g] for g in gs) if len(gs) else "(no genres listed)" for gs in item_genres],
+            "genres": [
+                "|".join(GENRES[g] for g in gs) if len(gs) else "(no genres listed)"
+                for gs in item_genres
+            ],
         }
     )
 
@@ -52,7 +58,9 @@ def generate(out_dir: str | Path, n_users=3000, n_items=1500, n_tags=40, mean_ev
         pick = rng.choice(len(GENRES), size=2, replace=False)
         taste[u] = g_emb[pick].sum(0) + rng.normal(scale=0.5, size=K)
     join = np.where(rng.random(n_users) < 0.5, 0.0, rng.random(n_users) * 0.85)
-    n_events = np.clip(rng.lognormal(np.log(mean_events * 0.7), 0.8, size=n_users), 6, 400).astype(int)
+    n_events = np.clip(rng.lognormal(np.log(mean_events * 0.7), 0.8, size=n_users), 6, 400).astype(
+        int
+    )
 
     rows = []
     for u in range(n_users):
@@ -70,18 +78,33 @@ def generate(out_dir: str | Path, n_users=3000, n_items=1500, n_tags=40, mean_ev
         idx, tau = idx[first], tau[first]
         r = 2.7 + 1.0 * aff[idx] + rng.normal(scale=0.6, size=len(idx))
         r = np.clip(np.round(r * 2) / 2, 0.5, 5.0)
-        rows.append(np.column_stack([np.full(len(idx), u + 1), movie_ids[idx], r, (T0 + tau * days * 86400).astype(np.int64)]))
+        rows.append(
+            np.column_stack(
+                [
+                    np.full(len(idx), u + 1),
+                    movie_ids[idx],
+                    r,
+                    (T0 + tau * days * 86400).astype(np.int64),
+                ]
+            )
+        )
     arr = np.vstack(rows)
     ratings = pd.DataFrame(arr, columns=["userId", "movieId", "rating", "timestamp"])
-    ratings = ratings.astype({"userId": "int64", "movieId": "int64", "rating": "float32", "timestamp": "int64"})
+    ratings = ratings.astype(
+        {"userId": "int64", "movieId": "int64", "rating": "float32", "timestamp": "int64"}
+    )
 
     # ---- genome (85% of items have it, like the real data) ---------------------------------
     basis = rng.normal(size=(n_tags, K))
     rel = 1 / (1 + np.exp(-(z @ basis.T) / 2 + rng.normal(scale=0.3, size=(n_items, n_tags))))
     has = rng.random(n_items) < 0.85
     gi, ti = np.nonzero(has[:, None] & np.ones((1, n_tags), bool))
-    genome = pd.DataFrame({"movieId": movie_ids[gi], "tagId": ti + 1, "relevance": rel[gi, ti].astype("float32")})
-    tags = pd.DataFrame({"tagId": np.arange(1, n_tags + 1), "tag": [f"tag_{i}" for i in range(n_tags)]})
+    genome = pd.DataFrame(
+        {"movieId": movie_ids[gi], "tagId": ti + 1, "relevance": rel[gi, ti].astype("float32")}
+    )
+    tags = pd.DataFrame(
+        {"tagId": np.arange(1, n_tags + 1), "tag": [f"tag_{i}" for i in range(n_tags)]}
+    )
 
     movies.to_csv(out / "movies.csv", index=False)
     ratings.to_csv(out / "ratings.csv", index=False)

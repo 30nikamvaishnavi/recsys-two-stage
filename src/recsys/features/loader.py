@@ -1,4 +1,5 @@
 """Read-side API for everything the feature pipeline writes."""
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -51,7 +52,13 @@ class FeatureStore:
         df = pd.read_parquet(self.dir / "train_examples.parquet")
         u, i, hist, num = examples_to_arrays(df, self.N)
         q = np.load(self.dir / "item_q.npy")
-        return {"user_idx": u, "item_idx": i, "hist_items": hist, "user_numeric": num, "item_q": q[i].astype(np.float32)}
+        return {
+            "user_idx": u,
+            "item_idx": i,
+            "hist_items": hist,
+            "user_numeric": num,
+            "item_q": q[i].astype(np.float32),
+        }
 
     def states(self, stage: str) -> StateArrays:
         return states_from_frame(pd.read_parquet(self.dir / f"user_state_{stage}.parquet"), self.N)

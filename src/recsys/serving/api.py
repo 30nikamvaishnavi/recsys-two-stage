@@ -1,15 +1,28 @@
 """FastAPI gateway.  uvicorn recsys.serving.api:app --host 0.0.0.0 --port 8080"""
+
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import Response
-from prometheus_client import CollectorRegistry, Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    CollectorRegistry,
+    Counter,
+    Histogram,
+    generate_latest,
+)
 
 from ..config import load_config
 from ..utils import get_logger
-from .schemas import FeedbackRequest, FeedbackResponse, RecommendRequest, RecommendResponse, SimilarItem
+from .schemas import (
+    FeedbackRequest,
+    FeedbackResponse,
+    RecommendRequest,
+    RecommendResponse,
+    SimilarItem,
+)
 
 log = get_logger("api")
 
@@ -19,7 +32,9 @@ def create_app(recommender=None) -> FastAPI:
     registry = CollectorRegistry()
     stage_h = Histogram("recsys_stage_latency_ms", "Per-stage latency (ms)", ["stage"], registry=registry,
                         buckets=(1, 2, 5, 10, 20, 50, 100, 200, 500, 1000))  # fmt: skip
-    req_c = Counter("recsys_requests_total", "Requests", ["variant", "strategy", "cache_hit"], registry=registry)
+    req_c = Counter(
+        "recsys_requests_total", "Requests", ["variant", "strategy", "cache_hit"], registry=registry
+    )
     state = {"rec": recommender}
 
     @asynccontextmanager
@@ -40,7 +55,9 @@ def create_app(recommender=None) -> FastAPI:
 
     def _recommend(req: RecommendRequest):
         try:
-            out = rec().recommend(req.user_id, req.k, req.model_variant, req.onboarding_genres, req.use_cache)
+            out = rec().recommend(
+                req.user_id, req.k, req.model_variant, req.onboarding_genres, req.use_cache
+            )
         except ValueError as e:
             raise HTTPException(422, str(e)) from e
         m = out["meta"]
@@ -54,11 +71,20 @@ def create_app(recommender=None) -> FastAPI:
         return _recommend(req)
 
     @app.get("/recommend", response_model=RecommendResponse)
-    def recommend_get(user_id: int, k: int = Query(10, ge=1, le=100), model_variant: str = "dcn_v2", genres: str | None = None):
+    def recommend_get(
+        user_id: int,
+        k: int = Query(10, ge=1, le=100),
+        model_variant: str = "dcn_v2",
+        genres: str | None = None,
+    ):
         gs = [g for g in (genres or "").split(",") if g] or None
         if model_variant not in ("wide_deep", "dcn_v2"):
             raise HTTPException(422, "model_variant must be wide_deep or dcn_v2")
-        return _recommend(RecommendRequest(user_id=user_id, k=k, model_variant=model_variant, onboarding_genres=gs))
+        return _recommend(
+            RecommendRequest(
+                user_id=user_id, k=k, model_variant=model_variant, onboarding_genres=gs
+            )
+        )
 
     @app.get("/similar-items", response_model=list[SimilarItem])
     def similar(item_id: int, k: int = Query(10, ge=1, le=100)):

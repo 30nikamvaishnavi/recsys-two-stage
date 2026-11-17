@@ -1,5 +1,4 @@
 import numpy as np
-
 from recsys.eval.metrics import evaluate_ranked
 from recsys.index.faiss_index import HAVE_FAISS, AnnIndex, NumpyFlatIndex, build
 from recsys.retrieval import retrievers as R
@@ -14,7 +13,10 @@ def test_topk_from_scores_sorted():
 def test_retrievers_never_return_padding_or_seen(world):
     st, seen = world.states["val"], world.seen["val"]
     sub = st.subsample(60, 0)
-    for ret in (R.PopularityRetriever(world.tables["val"]), R.ContentRetriever(world.tables["val"], 0.7)):
+    for ret in (
+        R.PopularityRetriever(world.tables["val"]),
+        R.ContentRetriever(world.tables["val"], 0.7),
+    ):
         items, _ = ret.retrieve(sub, 50, seen)
         assert (items != 0).all()
         for r in range(len(sub)):
@@ -24,7 +26,9 @@ def test_retrievers_never_return_padding_or_seen(world):
 def test_svd_mf_beats_popularity_on_validation(world):
     """Sanity: the personalised baseline must beat non-personalised popularity on held-out future."""
     ex = world.train_ex
-    mf = R.SVDRetriever.fit(ex["user_idx"].to_numpy(), ex["item_idx"].to_numpy(), world.n_users, world.n_items, 16)
+    mf = R.SVDRetriever.fit(
+        ex["user_idx"].to_numpy(), ex["item_idx"].to_numpy(), world.n_users, world.n_items, 16
+    )
     st = world.states["val"]
     warm = st.take(np.where(st.n_pos >= 5)[0])
     seen = world.seen["val"]
@@ -60,7 +64,11 @@ def test_ann_roundtrip_and_id_mapping(tmp_path):
     rng = np.random.default_rng(0)
     emb = rng.normal(size=(200, 16)).astype(np.float32)
     emb /= np.linalg.norm(emb, axis=1, keepdims=True)  # unit norm => self is the max inner product
-    a = build("flat", emb, {"hnsw_m": 8, "hnsw_ef_construction": 40, "ivf_nlist": 8, "pq_m": 4, "pq_nbits": 6})
+    a = build(
+        "flat",
+        emb,
+        {"hnsw_m": 8, "hnsw_ef_construction": 40, "ivf_nlist": 8, "pq_m": 4, "pq_nbits": 6},
+    )
     q = emb[:3]
     items, _ = a.search(q, 5)
     assert (items[:, 0] == np.array([1, 2, 3])).all()  # item ids are 1-based; row r <-> item r+1
@@ -80,7 +88,16 @@ def test_faiss_hnsw_and_ivfpq_recall():
     rng = np.random.default_rng(0)
     emb = rng.normal(size=(3000, 32)).astype(np.float32)
     emb /= np.linalg.norm(emb, axis=1, keepdims=True)
-    cfg = {"hnsw_m": 16, "hnsw_ef_construction": 100, "hnsw_ef_search": [64], "ivf_nlist": 32, "ivf_nprobe": [16], "pq_m": 8, "pq_nbits": 8, "target_recall": 0.5}
+    cfg = {
+        "hnsw_m": 16,
+        "hnsw_ef_construction": 100,
+        "hnsw_ef_search": [64],
+        "ivf_nlist": 32,
+        "ivf_nprobe": [16],
+        "pq_m": 8,
+        "pq_nbits": 8,
+        "target_recall": 0.5,
+    }
     rows, chosen, _ = run_benchmark(emb, emb[:100], cfg, 10, 20)
     by = {r["name"]: r for r in rows}
     assert by["flat"]["recall@100"] == 1.0 and by["hnsw_ef64"]["recall@100"] > 0.8

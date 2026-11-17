@@ -9,6 +9,7 @@
 New ITEMS are handled in the embedding layer: items with no interactions are embedded from content
 only (item tower with id=0), so they are indexed immediately (see retrieval.two_tower.embed_items).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -24,7 +25,12 @@ from .diversity import mmr
 
 log = get_logger("coldstart")
 
-WARM, SPARSE, ONBOARD, NO_SIGNAL = "two_stage", "content_blend", "genre_popularity", "global_popularity"
+WARM, SPARSE, ONBOARD, NO_SIGNAL = (
+    "two_stage",
+    "content_blend",
+    "genre_popularity",
+    "global_popularity",
+)
 
 
 @dataclass
@@ -34,14 +40,26 @@ class Decision:
 
 
 class ColdStartRouter:
-    def __init__(self, table: ItemTable, min_history: int = 5, content_alpha: float = 0.7, mmr_lambda: float = 0.7):
+    def __init__(
+        self,
+        table: ItemTable,
+        min_history: int = 5,
+        content_alpha: float = 0.7,
+        mmr_lambda: float = 0.7,
+    ):
         self.t, self.min_history, self.mmr_lambda = table, min_history, mmr_lambda
         self.content = table.content_vectors()
         self.content_ret = ContentRetriever(table, alpha=content_alpha)
         self.pop = table.pop[:, 0].copy()
         self.pop[0] = -np.inf
 
-    def route(self, n_pos: int, onboarding_genres: list[str] | None = None, models_ok: bool = True, retrieval_empty: bool = False) -> Decision:
+    def route(
+        self,
+        n_pos: int,
+        onboarding_genres: list[str] | None = None,
+        models_ok: bool = True,
+        retrieval_empty: bool = False,
+    ) -> Decision:
         if not models_ok:
             d = Decision(NO_SIGNAL, "MODEL_UNAVAILABLE_POPULARITY")
         elif retrieval_empty:
@@ -58,7 +76,9 @@ class ColdStartRouter:
         return d
 
     # ---- strategies ---------------------------------------------------------------------------
-    def _finish(self, scores: np.ndarray, k: int, seen: np.ndarray, diversify: bool, pool: int = 200):
+    def _finish(
+        self, scores: np.ndarray, k: int, seen: np.ndarray, diversify: bool, pool: int = 200
+    ):
         scores = scores.copy()
         scores[0] = -np.inf
         if len(seen):
@@ -89,7 +109,15 @@ class ColdStartRouter:
         sc = self.content_ret.score_chunk(state_row)[0]
         return self._finish(sc, k, seen, diversify=True)
 
-    def recommend(self, decision: Decision, states: StateArrays, row: int, k: int, seen: np.ndarray, onboarding_genres=None):
+    def recommend(
+        self,
+        decision: Decision,
+        states: StateArrays,
+        row: int,
+        k: int,
+        seen: np.ndarray,
+        onboarding_genres=None,
+    ):
         if decision.strategy == SPARSE:
             return self.content_blend(states.take(np.array([row])), k, seen)
         if decision.strategy == ONBOARD:

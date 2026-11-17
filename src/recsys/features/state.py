@@ -1,4 +1,5 @@
 """User-state arrays (as-of a cutoff) and the 'seen items' index used to filter recommendations."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -12,10 +13,10 @@ from .common import SECONDS_PER_DAY, pad_history, user_numeric
 
 @dataclass
 class StateArrays:
-    user_idx: np.ndarray         # (B,) int64 (0 = unknown user)
-    hist: np.ndarray             # (B,N) int32, oldest->newest, zero padded at the end
-    numeric: np.ndarray          # (B,3) float32
-    n_pos: np.ndarray            # (B,) int32 positives before cutoff
+    user_idx: np.ndarray  # (B,) int64 (0 = unknown user)
+    hist: np.ndarray  # (B,N) int32, oldest->newest, zero padded at the end
+    numeric: np.ndarray  # (B,3) float32
+    n_pos: np.ndarray  # (B,) int32 positives before cutoff
     targets: list = field(default_factory=list)  # list[np.ndarray] future positives (may be empty)
 
     def __len__(self) -> int:
@@ -43,12 +44,18 @@ class StateArrays:
                 hist[i, :keep] = self.hist[i, valid[i] - keep : valid[i]]
         num = self.numeric.copy()
         num[:, 0] = np.log1p(np.minimum(self.n_pos, k).astype(np.float32)) / 6.0
-        return StateArrays(self.user_idx, hist, num, np.minimum(self.n_pos, k).astype(np.int32), self.targets)
+        return StateArrays(
+            self.user_idx, hist, num, np.minimum(self.n_pos, k).astype(np.int32), self.targets
+        )
 
 
 def states_from_frame(df: pd.DataFrame, history_len: int) -> StateArrays:
     """Convert a user_state parquet/DataFrame (Spark or pandas engine output) to arrays."""
-    hist = np.stack([pad_history(h if h is not None else [], history_len) for h in df["hist_items"]]) if len(df) else np.zeros((0, history_len), np.int32)
+    hist = (
+        np.stack([pad_history(h if h is not None else [], history_len) for h in df["hist_items"]])
+        if len(df)
+        else np.zeros((0, history_len), np.int32)
+    )
     return StateArrays(
         df["user_idx"].to_numpy(np.int64),
         hist.astype(np.int32),
@@ -88,4 +95,6 @@ class SeenIndex:
 
 
 def days_between(a_ts, b_ts):
-    return (np.asarray(a_ts, dtype=np.float64) - np.asarray(b_ts, dtype=np.float64)) / SECONDS_PER_DAY
+    return (
+        np.asarray(a_ts, dtype=np.float64) - np.asarray(b_ts, dtype=np.float64)
+    ) / SECONDS_PER_DAY

@@ -1,4 +1,5 @@
 """Statistics for the simulated online experiment."""
+
 from __future__ import annotations
 
 import hashlib
@@ -19,10 +20,18 @@ def two_proportion_ztest(c1: int, n1: int, c2: int, n2: int) -> dict:
     p = (c1 + c2) / (n1 + n2)
     se = math.sqrt(p * (1 - p) * (1 / n1 + 1 / n2))
     z = (p2 - p1) / se if se > 0 else 0.0
-    return {"p1": p1, "p2": p2, "diff": p2 - p1, "z": z, "p_value": math.erfc(abs(z) / math.sqrt(2))}
+    return {
+        "p1": p1,
+        "p2": p2,
+        "diff": p2 - p1,
+        "z": z,
+        "p_value": math.erfc(abs(z) / math.sqrt(2)),
+    }
 
 
-def bootstrap_ci(x: np.ndarray, n_boot: int = 2000, alpha: float = 0.05, seed: int = 0) -> tuple[float, float, float]:
+def bootstrap_ci(
+    x: np.ndarray, n_boot: int = 2000, alpha: float = 0.05, seed: int = 0
+) -> tuple[float, float, float]:
     rng = np.random.default_rng(seed)
     x = np.asarray(x, dtype=float)
     x = x[np.isfinite(x)]
@@ -30,7 +39,9 @@ def bootstrap_ci(x: np.ndarray, n_boot: int = 2000, alpha: float = 0.05, seed: i
     return float(x.mean()), float(np.quantile(m, alpha / 2)), float(np.quantile(m, 1 - alpha / 2))
 
 
-def bootstrap_diff(a: np.ndarray, b: np.ndarray, n_boot: int = 2000, alpha: float = 0.05, seed: int = 0) -> dict:
+def bootstrap_diff(
+    a: np.ndarray, b: np.ndarray, n_boot: int = 2000, alpha: float = 0.05, seed: int = 0
+) -> dict:
     """User-level bootstrap of mean(b) - mean(a) (arms contain different users -> independent resampling)."""
     rng = np.random.default_rng(seed)
     a, b = np.asarray(a, float), np.asarray(b, float)
@@ -43,7 +54,9 @@ def bootstrap_diff(a: np.ndarray, b: np.ndarray, n_boot: int = 2000, alpha: floa
             "p_value_bootstrap": float(min(p, 1.0))}  # fmt: skip
 
 
-def min_detectable_effect(p0: float, n_per_arm: int, alpha: float = 0.05, power: float = 0.8) -> float:
+def min_detectable_effect(
+    p0: float, n_per_arm: int, alpha: float = 0.05, power: float = 0.8
+) -> float:
     """Approx. smallest absolute CTR lift detectable with n impressions per arm."""
     from statistics import NormalDist
 
@@ -51,7 +64,9 @@ def min_detectable_effect(p0: float, n_per_arm: int, alpha: float = 0.05, power:
     return z * math.sqrt(2 * p0 * (1 - p0) / max(n_per_arm, 1))
 
 
-def aa_false_positive_rate(per_user: np.ndarray, n_splits: int = 300, alpha: float = 0.05, seed: int = 0) -> float:
+def aa_false_positive_rate(
+    per_user: np.ndarray, n_splits: int = 300, alpha: float = 0.05, seed: int = 0
+) -> float:
     """Randomly split ONE arm in two and test: the rejection rate should be ~alpha (sanity check)."""
     from scipy import stats
 
@@ -61,7 +76,9 @@ def aa_false_positive_rate(per_user: np.ndarray, n_splits: int = 300, alpha: flo
     for _ in range(n_splits):
         perm = rng.permutation(len(per_user))
         h = len(per_user) // 2
-        rej += stats.ttest_ind(per_user[perm[:h]], per_user[perm[h:]], equal_var=False).pvalue < alpha
+        rej += (
+            stats.ttest_ind(per_user[perm[:h]], per_user[perm[h:]], equal_var=False).pvalue < alpha
+        )
     return rej / n_splits
 
 
@@ -72,5 +89,8 @@ def decide(ctr: dict, ndcg: dict, alpha: float = 0.05) -> dict:
     elif ctr["ci_high"] < 0:
         d, why = "KEEP_A", "B has significantly lower CTR."
     else:
-        d, why = "INCONCLUSIVE", "CTR difference CI includes 0; collect more traffic (see MDE) or keep A."
+        d, why = (
+            "INCONCLUSIVE",
+            "CTR difference CI includes 0; collect more traffic (see MDE) or keep A.",
+        )
     return {"decision": d, "reason": why, "alpha": alpha}

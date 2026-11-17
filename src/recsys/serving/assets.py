@@ -1,4 +1,5 @@
 """Load a ready-to-serve Recommender from artifacts/serving + model_repository."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -18,7 +19,9 @@ from .pipeline import Recommender
 from .state_store import UserStateStore
 
 
-def load_recommender(cfg, backend_kind: str | None = None, force_memory_cache: bool = False) -> Recommender:
+def load_recommender(
+    cfg, backend_kind: str | None = None, force_memory_cache: bool = False
+) -> Recommender:
     s = Path(path(cfg, "serving"))
     meta = load_json(s / "assets_meta.json")
     table = ItemTable.load(s / "item_table.npz")
@@ -28,7 +31,9 @@ def load_recommender(cfg, backend_kind: str | None = None, force_memory_cache: b
     )  # fmt: skip
     c = cfg["coldstart"]
     router = ColdStartRouter(table, c["min_history"], c["content_alpha"], c["mmr_lambda"])
-    backend = make_backend(cfg, Path(path(cfg, "model_repository")), s / "serving_meta.json", backend_kind)
+    backend = make_backend(
+        cfg, Path(path(cfg, "model_repository")), s / "serving_meta.json", backend_kind
+    )
     return Recommender(
         backend, AnnIndex.load(s), np.load(s / "item_emb.npy"), table, pd.read_parquet(s / "items.parquet"), store,
         make_cache(cfg, force_memory=force_memory_cache), router, cfg, Path(path(cfg, "logs")),

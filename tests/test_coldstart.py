@@ -1,5 +1,4 @@
 import numpy as np
-
 from recsys.coldstart.diversity import mmr
 from recsys.coldstart.evaluate import evaluate_cold_start
 from recsys.coldstart.router import NO_SIGNAL, ONBOARD, SPARSE, WARM, ColdStartRouter
@@ -13,8 +12,15 @@ def router(world):
 def test_router_reason_codes(world):
     r = router(world)
     assert r.route(50).reason == "WARM_USER" and r.route(50).strategy == WARM
-    assert r.route(5).strategy == WARM and r.route(4).strategy == SPARSE and r.route(1).reason == "SPARSE_HISTORY_CONTENT_BLEND"
-    assert r.route(0, ["Comedy"]).strategy == ONBOARD and r.route(0, ["Comedy"]).reason == "NEW_USER_ONBOARDING_GENRES"
+    assert (
+        r.route(5).strategy == WARM
+        and r.route(4).strategy == SPARSE
+        and r.route(1).reason == "SPARSE_HISTORY_CONTENT_BLEND"
+    )
+    assert (
+        r.route(0, ["Comedy"]).strategy == ONBOARD
+        and r.route(0, ["Comedy"]).reason == "NEW_USER_ONBOARDING_GENRES"
+    )
     d = r.route(0)
     assert d.strategy == NO_SIGNAL and d.reason == "NEW_USER_NO_SIGNAL"
     assert r.route(50, models_ok=False).reason == "MODEL_UNAVAILABLE_POPULARITY"
@@ -23,7 +29,16 @@ def test_router_reason_codes(world):
 
 def test_genre_popularity_matches_genre_and_skips_seen(world):
     r = router(world)
-    seen = np.array([int(np.argmax(world.tables["test"].genres[:, GENRE_IDX["Comedy"]] * world.tables["test"].pop[:, 0]))])
+    seen = np.array(
+        [
+            int(
+                np.argmax(
+                    world.tables["test"].genres[:, GENRE_IDX["Comedy"]]
+                    * world.tables["test"].pop[:, 0]
+                )
+            )
+        ]
+    )
     items, _ = r.genre_popularity(["Comedy"], 10, seen)
     assert len(items) == 10 and seen[0] not in items
     assert (world.tables["test"].genres[items, GENRE_IDX["Comedy"]] == 1).all()
@@ -38,10 +53,15 @@ def test_global_popularity_is_popular_and_diverse(world):
 
 
 def test_mmr_trades_relevance_for_diversity():
-    content = np.array([[0, 0], [1, 0], [1, 0], [0, 1]], np.float32)  # items 1,2 identical; 3 different
+    content = np.array(
+        [[0, 0], [1, 0], [1, 0], [0, 1]], np.float32
+    )  # items 1,2 identical; 3 different
     items, rel = np.array([1, 2, 3]), np.array([1.0, 0.99, 0.6])
-    assert mmr(items, rel, content, 2, lam=1.0).tolist() == [0, 1]       # pure relevance
-    assert mmr(items, rel, content, 2, lam=0.3).tolist() == [0, 2]       # diversity picks the dissimilar item
+    assert mmr(items, rel, content, 2, lam=1.0).tolist() == [0, 1]  # pure relevance
+    assert mmr(items, rel, content, 2, lam=0.3).tolist() == [
+        0,
+        2,
+    ]  # diversity picks the dissimilar item
 
 
 def test_content_blend_uses_history(world):
@@ -57,7 +77,17 @@ def test_content_blend_uses_history(world):
 
 def test_cold_start_evaluation_runs_and_router_beats_random(world):
     r = router(world)
-    out = evaluate_cold_start(r, world.states["val"], world.seen["val"], world.tables["val"], None, (0, 1, 2), 30, 200, (10,))
+    out = evaluate_cold_start(
+        r,
+        world.states["val"],
+        world.seen["val"],
+        world.tables["val"],
+        None,
+        (0, 1, 2),
+        30,
+        200,
+        (10,),
+    )
     assert out["n_users"] > 20
     res1 = out["by_history_len"]["1"]
     assert "content_blend" in res1 and "router" in res1 and "global_popularity" in res1

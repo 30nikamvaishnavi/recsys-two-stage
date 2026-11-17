@@ -4,6 +4,7 @@
 
 Item indices are 1..n (0 is padding and never returned).
 """
+
 from __future__ import annotations
 
 from typing import Callable, Protocol
@@ -27,7 +28,9 @@ def topk_from_scores(scores: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray
 
 
 class Retriever(Protocol):
-    def retrieve(self, states: StateArrays, k: int, seen: SeenIndex | None) -> tuple[np.ndarray, np.ndarray]: ...
+    def retrieve(
+        self, states: StateArrays, k: int, seen: SeenIndex | None
+    ) -> tuple[np.ndarray, np.ndarray]: ...
 
 
 class _ChunkedMixin:
@@ -69,7 +72,10 @@ class SVDRetriever(_ChunkedMixin):
     def fit(cls, user_idx, item_idx, n_users: int, n_items: int, rank: int, seed: int = 0):
         from scipy.sparse.linalg import svds
 
-        m = sp.csr_matrix((np.ones(len(user_idx), np.float32), (user_idx, item_idx)), shape=(n_users + 1, n_items + 1))
+        m = sp.csr_matrix(
+            (np.ones(len(user_idx), np.float32), (user_idx, item_idx)),
+            shape=(n_users + 1, n_items + 1),
+        )
         m.data[:] = 1.0
         m = sp.csr_matrix(m.multiply(1.0 / np.sqrt(np.maximum(m.sum(1), 1))))  # damp heavy users
         r = min(rank, min(m.shape) - 2)
@@ -112,13 +118,25 @@ class EmbeddingRetriever(_ChunkedMixin):
         self.e = item_emb.astype(np.float32)
 
     def user_embeddings(self, states: StateArrays) -> np.ndarray:
-        return np.vstack([self.user_fn(states.take(np.arange(s, min(s + 4096, len(states))))) for s in range(0, len(states), 4096)])
+        return np.vstack(
+            [
+                self.user_fn(states.take(np.arange(s, min(s + 4096, len(states)))))
+                for s in range(0, len(states), 4096)
+            ]
+        )
 
     def score_chunk(self, states):
         return self.user_fn(states) @ self.e.T
 
 
-def evaluate_retriever(retriever, states: StateArrays, seen, ks=(10, 50, 100), max_users: int | None = None, seed: int = 0):
+def evaluate_retriever(
+    retriever,
+    states: StateArrays,
+    seen,
+    ks=(10, 50, 100),
+    max_users: int | None = None,
+    seed: int = 0,
+):
     from ..eval.metrics import evaluate_ranked
 
     st = states.subsample(max_users, seed)

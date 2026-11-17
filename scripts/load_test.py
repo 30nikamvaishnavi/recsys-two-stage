@@ -2,6 +2,7 @@
 
     python scripts/load_test.py --url http://localhost:8080 --requests 2000 --concurrency 16 --repeat-frac 0.3
 """
+
 from __future__ import annotations
 
 import argparse
@@ -13,7 +14,6 @@ from pathlib import Path
 import httpx
 import numpy as np
 import pandas as pd
-
 from recsys.config import load_config, path
 from recsys.utils import percentiles
 
@@ -21,20 +21,35 @@ from recsys.utils import percentiles
 async def main_async(a):
     cfg = load_config(mode=a.mode)
     um = pd.read_parquet(Path(path(cfg, "serving")) / "user_states.parquet")
-    users = pd.read_parquet(Path(path(cfg, "serving")) / "user_map.parquet").set_index("user_idx").loc[um["user_idx"], "user_id"].to_numpy()
+    users = (
+        pd.read_parquet(Path(path(cfg, "serving")) / "user_map.parquet")
+        .set_index("user_idx")
+        .loc[um["user_idx"], "user_id"]
+        .to_numpy()
+    )
     rng = np.random.default_rng(0)
     pool = rng.choice(users, size=min(len(users), 2000), replace=False)
-    seq = [int(rng.choice(pool[: max(10, int(len(pool) * 0.05))]) if rng.random() < a.repeat_frac else rng.choice(pool)) for _ in range(a.requests)]
+    seq = [
+        int(
+            rng.choice(pool[: max(10, int(len(pool) * 0.05))])
+            if rng.random() < a.repeat_frac
+            else rng.choice(pool)
+        )
+        for _ in range(a.requests)
+    ]
     sem, lat, hits, errs = asyncio.Semaphore(a.concurrency), [], 0, 0
     lat_hit, lat_miss = [], []
 
     async with httpx.AsyncClient(base_url=a.url, timeout=30) as c:
+
         async def one(u):
             nonlocal hits, errs
             async with sem:
                 t = time.perf_counter()
                 try:
-                    r = await c.post("/recommend", json={"user_id": u, "k": 10, "model_variant": a.variant})
+                    r = await c.post(
+                        "/recommend", json={"user_id": u, "k": 10, "model_variant": a.variant}
+                    )
                     r.raise_for_status()
                     ms = (time.perf_counter() - t) * 1000
                     lat.append(ms)

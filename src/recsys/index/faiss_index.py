@@ -2,6 +2,7 @@
 
 Row r of the index <-> item_idx = ids[r] (ids excludes the padding row 0).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -43,7 +44,12 @@ class AnnIndex:
     """Wrapper holding the FAISS (or numpy) index + item-id mapping + save/load."""
 
     def __init__(self, index, ids: np.ndarray, kind: str, params: dict | None = None):
-        self.index, self.ids, self.kind, self.params = index, ids.astype(np.int32), kind, params or {}
+        self.index, self.ids, self.kind, self.params = (
+            index,
+            ids.astype(np.int32),
+            kind,
+            params or {},
+        )
 
     def search(self, q: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
         """-> (item_idx (B,k), scores (B,k)); -1 rows from FAISS are mapped to item 0."""

@@ -2,6 +2,7 @@
 
     python -m recsys.eval.eda --mode sample     ->  docs/figures/<mode>/*.png , artifacts/reports/<mode>/eda_summary.json
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -60,7 +61,9 @@ def make_figures(ds: Dataset, out: Path) -> list[Path]:
     ax[0].set(title="Rating distribution", xlabel="rating", ylabel="count")
     pu = i.groupby("user_idx").size().sort_values(ascending=False).to_numpy()
     ax[1].loglog(np.arange(1, len(pu) + 1), pu)
-    ax[1].set(title="Interactions per user (rank-size)", xlabel="user rank", ylabel="# interactions")
+    ax[1].set(
+        title="Interactions per user (rank-size)", xlabel="user rank", ylabel="# interactions"
+    )
     pi = i.groupby("item_idx").size().sort_values(ascending=False).to_numpy()
     ax[2].loglog(np.arange(1, len(pi) + 1), pi, color="#e45756")
     ax[2].set(title="Item popularity long tail", xlabel="item rank", ylabel="# interactions")
@@ -69,8 +72,19 @@ def make_figures(ds: Dataset, out: Path) -> list[Path]:
     fig, ax = plt.subplots(figsize=(10, 4))
     t = pd.to_datetime(i["ts"], unit="s")
     t.dt.to_period("M").value_counts().sort_index().plot(ax=ax, color="#4c78a8")
-    ax.set(title="Interactions per month (split boundaries in text below)", xlabel="month", ylabel="count")
-    ax.text(0.01, 0.95, "split: " + ", ".join(f"{k}={pd.to_datetime(v, unit='s').date()}" for k, v in b.items()), transform=ax.transAxes, va="top", fontsize=8)
+    ax.set(
+        title="Interactions per month (split boundaries in text below)",
+        xlabel="month",
+        ylabel="count",
+    )
+    ax.text(
+        0.01,
+        0.95,
+        "split: " + ", ".join(f"{k}={pd.to_datetime(v, unit='s').date()}" for k, v in b.items()),
+        transform=ax.transAxes,
+        va="top",
+        fontsize=8,
+    )
     save(fig, "time_split.png")
 
     gl = [parse_genres(s) for s in ds.items["genres"]]
@@ -85,7 +99,11 @@ def make_figures(ds: Dataset, out: Path) -> list[Path]:
 
     fig, ax = plt.subplots(figsize=(6, 4))
     first = i.groupby("item_idx")["stage"].min().value_counts().sort_index()
-    ax.bar(["retr", "rank", "val", "test"][: len(first)], first.reindex(range(4), fill_value=0).to_numpy()[: len(first)], color="#f58518")
+    ax.bar(
+        ["retr", "rank", "val", "test"][: len(first)],
+        first.reindex(range(4), fill_value=0).to_numpy()[: len(first)],
+        color="#f58518",
+    )
     ax.set(title="Stage in which each item FIRST appears (cold items)", ylabel="# items")
     save(fig, "cold_items.png")
     return files

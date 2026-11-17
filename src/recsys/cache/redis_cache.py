@@ -5,6 +5,7 @@ Keys:  rec:{variant}:{user}:{k}   JSON, TTL        pop:global / pop:genre:{g}   
        stats:hits / stats:misses  counters
 Falls back to an in-process dict backend (same interface) when Redis is unreachable or in tests.
 """
+
 from __future__ import annotations
 
 import json
@@ -84,7 +85,9 @@ class RecCache:
         self.r.sadd(f"recidx:{user}", key)
 
     def invalidate_user(self, user: int) -> int:
-        keys = [k.decode() if isinstance(k, bytes) else k for k in self.r.smembers(f"recidx:{user}")]
+        keys = [
+            k.decode() if isinstance(k, bytes) else k for k in self.r.smembers(f"recidx:{user}")
+        ]
         n = self.r.delete(*keys, f"recidx:{user}") if keys else 0
         return int(n)
 
@@ -97,7 +100,12 @@ class RecCache:
 
     def stats(self) -> dict:
         h, m = int(self.r.get("stats:hits") or 0), int(self.r.get("stats:misses") or 0)
-        return {"hits": h, "misses": m, "hit_rate": h / (h + m) if h + m else 0.0, "backend": self.backend_name}
+        return {
+            "hits": h,
+            "misses": m,
+            "hit_rate": h / (h + m) if h + m else 0.0,
+            "backend": self.backend_name,
+        }
 
     def healthy(self) -> bool:
         try:

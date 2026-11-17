@@ -10,6 +10,7 @@ Output (data/processed/<mode>/):
 stage: 0 = retrieval-train [0,t1) | 1 = ranker-train [t1,t2) | 2 = val [t2,t3) | 3 = test [t3,inf)
 Index 0 is reserved (padding / unknown) for BOTH users and items.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -43,13 +44,18 @@ def load_raw(raw: Path):
         dtype={"userId": "int32", "movieId": "int32", "rating": "float32", "timestamp": "int64"},
     )
     movies = pd.read_csv(raw / "movies.csv")
-    genome = pd.read_csv(raw / "genome-scores.csv", dtype={"movieId": "int32", "tagId": "int32", "relevance": "float32"})
+    genome = pd.read_csv(
+        raw / "genome-scores.csv",
+        dtype={"movieId": "int32", "tagId": "int32", "relevance": "float32"},
+    )
     return ratings, movies, genome
 
 
 def assign_stage(ts: np.ndarray, boundaries: dict[str, int]) -> np.ndarray:
     """stage by global timestamp: t < t1 -> 0, < t2 -> 1, < t3 -> 2, else 3."""
-    return np.searchsorted([boundaries["t1"], boundaries["t2"], boundaries["t3"]], ts, side="right").astype(np.int8)
+    return np.searchsorted(
+        [boundaries["t1"], boundaries["t2"], boundaries["t3"]], ts, side="right"
+    ).astype(np.int8)
 
 
 def compute_boundaries(ts: np.ndarray, split_cfg) -> dict[str, int]:
@@ -57,7 +63,9 @@ def compute_boundaries(ts: np.ndarray, split_cfg) -> dict[str, int]:
     return {"t1": int(q[0]), "t2": int(q[1]), "t3": int(q[2])}
 
 
-def clean_and_split(ratings: pd.DataFrame, movies: pd.DataFrame, genome: pd.DataFrame, cfg) -> Dataset:
+def clean_and_split(
+    ratings: pd.DataFrame, movies: pd.DataFrame, genome: pd.DataFrame, cfg
+) -> Dataset:
     d = cfg["data"]
     n0 = len(ratings)
     ratings = ratings.sort_values("timestamp").drop_duplicates(["userId", "movieId"], keep="last")
@@ -75,7 +83,9 @@ def clean_and_split(ratings: pd.DataFrame, movies: pd.DataFrame, genome: pd.Data
     ratings = ratings[ratings["movieId"].isin(movies["movieId"])]
 
     uids = np.sort(ratings["userId"].unique())
-    user_map = pd.DataFrame({"user_idx": np.arange(1, len(uids) + 1, dtype=np.int32), "user_id": uids})
+    user_map = pd.DataFrame(
+        {"user_idx": np.arange(1, len(uids) + 1, dtype=np.int32), "user_id": uids}
+    )
     mids = np.sort(ratings["movieId"].unique())
     items = movies[movies["movieId"].isin(mids)].set_index("movieId").loc[mids].reset_index()
     items.insert(0, "item_idx", np.arange(1, len(items) + 1, dtype=np.int32))
@@ -91,8 +101,12 @@ def clean_and_split(ratings: pd.DataFrame, movies: pd.DataFrame, genome: pd.Data
 
     inter = pd.DataFrame(
         {
-            "user_idx": ratings["userId"].map(dict(zip(user_map["user_id"], user_map["user_idx"], strict=True))).astype("int32"),
-            "item_idx": ratings["movieId"].map(dict(zip(items["movie_id"], items["item_idx"], strict=True))).astype("int32"),
+            "user_idx": ratings["userId"]
+            .map(dict(zip(user_map["user_id"], user_map["user_idx"], strict=True)))
+            .astype("int32"),
+            "item_idx": ratings["movieId"]
+            .map(dict(zip(items["movie_id"], items["item_idx"], strict=True)))
+            .astype("int32"),
             "rating": ratings["rating"].astype("float32"),
             "ts": ratings["timestamp"].astype("int64"),
         }
@@ -103,7 +117,11 @@ def clean_and_split(ratings: pd.DataFrame, movies: pd.DataFrame, genome: pd.Data
     inter = inter.sort_values(["user_idx", "ts", "item_idx"]).reset_index(drop=True)
 
     g = genome[genome["movieId"].isin(mids)].copy()
-    g["item_idx"] = g["movieId"].map(dict(zip(items["movie_id"], items["item_idx"], strict=True))).astype("int32")
+    g["item_idx"] = (
+        g["movieId"]
+        .map(dict(zip(items["movie_id"], items["item_idx"], strict=True)))
+        .astype("int32")
+    )
     g = g[["item_idx", "tagId", "relevance"]].rename(columns={"tagId": "tag_id"})
 
     stats = {

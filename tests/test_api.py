@@ -4,9 +4,8 @@ pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
 pytest.importorskip("prometheus_client")
 from fastapi.testclient import TestClient  # noqa: E402
-from test_pipeline import ext_id, make_rec, stack, warm_user  # noqa: E402,F401
-
 from recsys.serving.api import create_app  # noqa: E402
+from test_pipeline import ext_id, make_rec, stack, warm_user  # noqa: E402,F401
 
 
 def client(stack):
@@ -18,10 +17,28 @@ def test_health_recommend_feedback_metrics(stack):
     assert c.get("/health").json()["status"] == "ok"
     u = ext_id(stack, warm_user(stack))
     r = c.post("/recommend", json={"user_id": u, "k": 5, "model_variant": "wide_deep"})
-    assert r.status_code == 200 and len(r.json()["items"]) == 5 and r.json()["meta"]["cache_hit"] is False
-    assert c.post("/recommend", json={"user_id": u, "k": 5, "model_variant": "wide_deep"}).json()["meta"]["cache_hit"] is True
+    assert (
+        r.status_code == 200
+        and len(r.json()["items"]) == 5
+        and r.json()["meta"]["cache_hit"] is False
+    )
+    assert (
+        c.post("/recommend", json={"user_id": u, "k": 5, "model_variant": "wide_deep"}).json()[
+            "meta"
+        ]["cache_hit"]
+        is True
+    )
     item = r.json()["items"][0]["item_id"]
-    fb = c.post("/feedback", json={"user_id": u, "item_id": item, "event": "click", "position": 0, "variant": "wide_deep"})
+    fb = c.post(
+        "/feedback",
+        json={
+            "user_id": u,
+            "item_id": item,
+            "event": "click",
+            "position": 0,
+            "variant": "wide_deep",
+        },
+    )
     assert fb.status_code == 200 and fb.json()["cache_entries_invalidated"] >= 1
     m = c.get("/metrics").text
     assert "recsys_requests_total" in m and "recsys_stage_latency_ms_bucket" in m

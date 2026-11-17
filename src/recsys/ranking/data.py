@@ -5,13 +5,14 @@ the online gateway both call it, so there is no train/serve skew.
 
 dense = [user_num(3) | user_genre_aff(G) | item_genres(G) | item_num(6) | genome(D) | cross(3) | retrieval(2)]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 import numpy as np
 
-from ..features.common import G, NUM_USER, masked_mean
+from ..features.common import NUM_USER, G, masked_mean
 from ..features.item_table import ItemTable
 from ..features.state import SeenIndex, StateArrays
 
@@ -53,15 +54,23 @@ ABLATIONS = {
 }
 
 
-def candidate_dense(states: StateArrays, items: np.ndarray, scores: np.ndarray, table: ItemTable, ret_rank: np.ndarray | None = None) -> np.ndarray:
+def candidate_dense(
+    states: StateArrays,
+    items: np.ndarray,
+    scores: np.ndarray,
+    table: ItemTable,
+    ret_rank: np.ndarray | None = None,
+) -> np.ndarray:
     """states (B), items (B,K), scores (B,K) -> dense (B*K, D) float32 (row-major over B then K)."""
     B, K = items.shape
-    ug = masked_mean(states.hist, table.genres)                       # (B,G)
-    hg = masked_mean(states.hist, table.genome)                       # (B,D)
-    hp = masked_mean(states.hist, table.pop[:, :1])                   # (B,1)
-    ig, gv = table.genres[items], table.genome[items]                 # (B,K,G) (B,K,D)
+    ug = masked_mean(states.hist, table.genres)  # (B,G)
+    hg = masked_mean(states.hist, table.genome)  # (B,D)
+    hp = masked_mean(states.hist, table.pop[:, :1])  # (B,1)
+    ig, gv = table.genres[items], table.genome[items]  # (B,K,G) (B,K,D)
     overlap = (ug[:, None, :] * ig).sum(-1) / np.maximum(ig.sum(-1), 1.0)
-    cos = (hg[:, None, :] * gv).sum(-1) / (np.linalg.norm(hg, axis=1)[:, None] * np.linalg.norm(gv, axis=-1) + 1e-6)
+    cos = (hg[:, None, :] * gv).sum(-1) / (
+        np.linalg.norm(hg, axis=1)[:, None] * np.linalg.norm(gv, axis=-1) + 1e-6
+    )
     gap = hp - table.pop[items, 0]
     item_num = np.concatenate(
         [table.pop[items], table.pop_rank_pct[items][..., None], (table.year_bucket[items] / 10.0)[..., None], table.has_genome[items][..., None]], -1
@@ -89,13 +98,15 @@ def labels_for(items: np.ndarray, targets: list) -> np.ndarray:
 
 @dataclass
 class RankData:
-    dense: np.ndarray    # (M, D)
-    item_idx: np.ndarray # (M,)
-    label: np.ndarray    # (M,)
-    group: np.ndarray    # (M,) user position (for user-level splits)
+    dense: np.ndarray  # (M, D)
+    item_idx: np.ndarray  # (M,)
+    label: np.ndarray  # (M,)
+    group: np.ndarray  # (M,) user position (for user-level splits)
 
 
-def build_rank_train(retriever, states, seen, table, k: int, pop_negs=None, n_items: int = 0) -> RankData:
+def build_rank_train(
+    retriever, states, seen, table, k: int, pop_negs=None, n_items: int = 0
+) -> RankData:
     """Positives = held-out true interactions among retrieved candidates; negatives = the other
     retrieved candidates (hard negatives) + optional popularity negatives (Spark job)."""
     items, scores = retriever.retrieve(states, k, seen)
@@ -110,13 +121,28 @@ def build_rank_train(retriever, states, seen, table, k: int, pop_negs=None, n_it
         ui = rows["user_idx"].map(pos_of).to_numpy()
         ii = rows["item_idx"].to_numpy()
         retrieved = {(a, int(b)) for a, row in enumerate(items) for b in row}
-        keep = np.array([(a, int(b)) not in retrieved for a, b in zip(ui, ii, strict=True)], dtype=bool)
+        keep = np.array(
+            [(a, int(b)) not in retrieved for a, b in zip(ui, ii, strict=True)], dtype=bool
+        )
         ui, ii = ui[keep], ii[keep]
         if len(ui):
             sub = states.take(ui)
             ev = getattr(retriever, "e", None)
-            sc = (retriever.user_embeddings(sub) * ev[ii]).sum(1) if ev is not None else np.zeros(len(ui), np.float32)
-            d = candidate_dense(sub, ii[:, None], sc[:, None], table, ret_rank=np.full((len(ui), 1), max(n_items, 1000)))
-            lab = np.array([float(i in set(states.targets[a].tolist())) for a, i in zip(ui, ii, strict=True)], np.float32)
+            sc = (
+                (retriever.user_embeddings(sub) * ev[ii]).sum(1)
+                if ev is not None
+                else np.zeros(len(ui), np.float32)
+            )
+            d = candidate_dense(
+                sub,
+                ii[:, None],
+                sc[:, None],
+                table,
+                ret_rank=np.full((len(ui), 1), max(n_items, 1000)),
+            )
+            lab = np.array(
+                [float(i in set(states.targets[a].tolist())) for a, i in zip(ui, ii, strict=True)],
+                np.float32,
+            )
             parts.append((d, ii.astype(items.dtype), lab, ui))
     return RankData(*[np.concatenate(p) for p in zip(*parts, strict=True)])

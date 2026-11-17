@@ -2,7 +2,6 @@ import math
 
 import numpy as np
 import pandas as pd
-
 from recsys.abtest import simulate as SIM
 from recsys.abtest import stats as S
 
@@ -15,7 +14,9 @@ def test_bucketing_deterministic_balanced_and_salted():
     assert a == [S.bucket(u, "s") for u in range(20000)]
     assert abs(np.mean(a) - 0.5) < 0.02
     b = [S.bucket(u, "other") for u in range(20000)]
-    assert 0.4 < np.mean(np.array(a) == np.array(b)) < 0.6  # different salt => independent assignment
+    assert (
+        0.4 < np.mean(np.array(a) == np.array(b)) < 0.6
+    )  # different salt => independent assignment
 
 
 def test_two_proportion_ztest_known_value():
@@ -54,7 +55,10 @@ def test_decision_rules():
     assert S.decide(pos, ok_ndcg)["decision"] == "SHIP_B"
     assert S.decide(neg, ok_ndcg)["decision"] == "KEEP_A"
     assert S.decide(flat, ok_ndcg)["decision"] == "INCONCLUSIVE"
-    assert S.decide(pos, {"ci_low": -0.05, "ci_high": -0.01, "diff": -0.03})["decision"] == "INCONCLUSIVE"
+    assert (
+        S.decide(pos, {"ci_low": -0.05, "ci_high": -0.01, "diff": -0.03})["decision"]
+        == "INCONCLUSIVE"
+    )
 
 
 def test_click_model_is_position_biased_and_relevance_driven():
@@ -72,7 +76,12 @@ def test_click_model_is_position_biased_and_relevance_driven():
 
 
 def test_replay_is_deterministic_and_assigns_arms_consistently():
-    users = pd.DataFrame({"user_id": np.arange(1, 801), "relevant": [set(range(u % 7, u % 7 + 5)) for u in range(1, 801)]})
+    users = pd.DataFrame(
+        {
+            "user_id": np.arange(1, 801),
+            "relevant": [set(range(u % 7, u % 7 + 5)) for u in range(1, 801)],
+        }
+    )
 
     def rec_fn(u, variant, k):  # variant B recommends relevant items higher
         base = list(range(u % 7, u % 7 + 5)) if variant == "dcn_v2" else list(range(50, 55))
@@ -84,4 +93,7 @@ def test_replay_is_deterministic_and_assigns_arms_consistently():
     assert ((d1["arm"] == "A") == (d1["variant"] == "wide_deep")).all()
     res = SIM.analyze(d1, ACFG)
     assert res["simulation"] is True and res["decision"]["decision"] == "SHIP_B"
-    assert res["arms"]["B"]["ctr"] > res["arms"]["A"]["ctr"] and res["tests"]["ctr_two_proportion_z"]["p_value"] < 0.01
+    assert (
+        res["arms"]["B"]["ctr"] > res["arms"]["A"]["ctr"]
+        and res["tests"]["ctr_two_proportion_z"]["p_value"] < 0.01
+    )

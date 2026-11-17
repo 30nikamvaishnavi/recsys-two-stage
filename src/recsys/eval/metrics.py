@@ -5,6 +5,7 @@ NDCG@K   = DCG@K / IDCG@K,  DCG = Σ rel_i / log2(i+2),  IDCG uses min(|relevant
 MAP@K    = mean over users of  Σ_{i<=K} P@i·rel_i / min(|relevant|, K)
 hit@K    = 1[top-K ∩ relevant ≠ ∅]
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -91,6 +92,18 @@ def calibration_table(y, p, n_bins: int = 10) -> dict:
     for i in range(n_bins):
         m = b == i
         if m.any():
-            rows.append({"bin": i, "n": int(m.sum()), "mean_pred": float(p[m].mean()), "frac_pos": float(y[m].mean())})
+            rows.append(
+                {
+                    "bin": i,
+                    "n": int(m.sum()),
+                    "mean_pred": float(p[m].mean()),
+                    "frac_pos": float(y[m].mean()),
+                }
+            )
             ece += m.mean() * abs(p[m].mean() - y[m].mean())
-    return {"bins": rows, "ece": float(ece), "mean_pred": float(p.mean()), "base_rate": float(y.mean())}
+    return {
+        "bins": rows,
+        "ece": float(ece),
+        "mean_pred": float(p.mean()),
+        "base_rate": float(y.mean()),
+    }

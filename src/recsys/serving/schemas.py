@@ -1,4 +1,5 @@
 """Pydantic request/response models (drive the OpenAPI docs at /docs)."""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -7,10 +8,15 @@ from pydantic import BaseModel, Field
 
 
 class RecommendRequest(BaseModel):
-    user_id: int = Field(..., description="External MovieLens userId. Unknown ids are treated as new (cold-start) users.")
+    user_id: int = Field(
+        ...,
+        description="External MovieLens userId. Unknown ids are treated as new (cold-start) users.",
+    )
     k: int = Field(10, ge=1, le=100)
     model_variant: Literal["wide_deep", "dcn_v2"] = "dcn_v2"
-    onboarding_genres: list[str] | None = Field(None, description="Genres picked at signup (used for brand-new users).")
+    onboarding_genres: list[str] | None = Field(
+        None, description="Genres picked at signup (used for brand-new users)."
+    )
     use_cache: bool = True
 
 

@@ -1,4 +1,5 @@
 """The Spark pipeline must produce the same tables as the pandas reference engine."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -26,15 +27,30 @@ def test_spark_matches_pandas(world, tmp_path, monkeypatch):
         assert list(a.index) == list(s.index)
         assert (a["n_pos"].to_numpy() == s["n_pos"].to_numpy()).all()
         assert all(sorted(x) == sorted(y) for x, y in zip(a["targets"], s["targets"], strict=True))
-        assert all(np.array_equal(x, y) for x, y in zip(a["hist_items"], s["hist_items"], strict=True))
+        assert all(
+            np.array_equal(x, y) for x, y in zip(a["hist_items"], s["hist_items"], strict=True)
+        )
         pa = pf.item_pop(inter, cut, [7, 30], world.n_items).set_index("item_idx").sort_index()
         ps = pd.read_parquet(out / f"item_pop_{stage}.parquet").set_index("item_idx").sort_index()
-        assert (pa[["pop_all", "pop_7d", "pop_30d"]].to_numpy() == ps[["pop_all", "pop_7d", "pop_30d"]].to_numpy()).all()
+        assert (
+            pa[["pop_all", "pop_7d", "pop_30d"]].to_numpy()
+            == ps[["pop_all", "pop_7d", "pop_30d"]].to_numpy()
+        ).all()
 
-    ex_p = pf.train_examples(inter, N).sort_values(["user_idx", "ts", "item_idx"]).reset_index(drop=True)
-    ex_s = pd.read_parquet(out / "train_examples.parquet").sort_values(["user_idx", "ts", "item_idx"]).reset_index(drop=True)
+    ex_p = (
+        pf.train_examples(inter, N)
+        .sort_values(["user_idx", "ts", "item_idx"])
+        .reset_index(drop=True)
+    )
+    ex_s = (
+        pd.read_parquet(out / "train_examples.parquet")
+        .sort_values(["user_idx", "ts", "item_idx"])
+        .reset_index(drop=True)
+    )
     assert len(ex_p) == len(ex_s)
-    assert all(np.array_equal(x, y) for x, y in zip(ex_p["hist_items"], ex_s["hist_items"], strict=True))
+    assert all(
+        np.array_equal(x, y) for x, y in zip(ex_p["hist_items"], ex_s["hist_items"], strict=True)
+    )
     assert np.allclose(ex_p["n_prior"], ex_s["n_prior"])
     for f in ("cold_items", "cold_users", "pop_negatives_rank", "genome_vectors"):
         assert len(pd.read_parquet(out / f"{f}.parquet")) > 0

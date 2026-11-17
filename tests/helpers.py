@@ -1,4 +1,5 @@
 """Build a small, fully in-memory 'world' (synthetic MovieLens-format data -> split -> features)."""
+
 from __future__ import annotations
 
 import tempfile
@@ -7,7 +8,6 @@ from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
-
 from recsys.config import load_config
 from recsys.data.prepare import clean_and_split, load_raw
 from recsys.data.synthetic import generate

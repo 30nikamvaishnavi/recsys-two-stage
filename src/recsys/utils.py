@@ -1,4 +1,5 @@
 """Small shared helpers: logging, timing, json IO, seeding."""
+
 from __future__ import annotations
 
 import json

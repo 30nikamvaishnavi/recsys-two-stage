@@ -8,13 +8,14 @@ Both L2-normalised (dim d). Loss: in-batch sampled softmax with logQ popularity 
 Towers are plain functional Keras models so they export cleanly to ONNX/Triton. ID dropout
 (id -> 0) trains the content-only path used for cold users and cold items.
 """
+
 from __future__ import annotations
 
 import numpy as np
 import tensorflow as tf
 import tensorflow_recommenders as tfrs
 
-from ..features.common import G, N_YEAR_BUCKETS, NUM_USER
+from ..features.common import N_YEAR_BUCKETS, NUM_USER, G
 from ..features.item_table import ItemTable
 
 keras = tf.keras
@@ -53,7 +54,9 @@ def _mlp(x, hidden, out_dim):
     return L2Norm(name="embedding")(keras.layers.Dense(out_dim)(x))
 
 
-def build_user_tower(n_users: int, n_items: int, genre_matrix: np.ndarray, history_len: int, dim: int, hidden) -> keras.Model:
+def build_user_tower(
+    n_users: int, n_items: int, genre_matrix: np.ndarray, history_len: int, dim: int, hidden
+) -> keras.Model:
     uid = keras.Input((1,), dtype=tf.int64, name="user_idx")
     hist = keras.Input((history_len,), dtype=tf.int64, name="hist_items")
     num = keras.Input((NUM_USER,), dtype=tf.float32, name="user_numeric")
@@ -65,7 +68,9 @@ def build_user_tower(n_users: int, n_items: int, genre_matrix: np.ndarray, histo
     return keras.Model([uid, hist, num], out, name="user_tower")
 
 
-def build_item_tower(n_items: int, genome_dim: int, n_pop_buckets: int, dim: int, hidden) -> keras.Model:
+def build_item_tower(
+    n_items: int, genome_dim: int, n_pop_buckets: int, dim: int, hidden
+) -> keras.Model:
     iid = keras.Input((1,), dtype=tf.int64, name="item_idx")
     gen = keras.Input((G,), dtype=tf.float32, name="item_genres")
     yb = keras.Input((1,), dtype=tf.int64, name="year_bucket")
@@ -82,9 +87,13 @@ def build_item_tower(n_items: int, genome_dim: int, n_pop_buckets: int, dim: int
     return keras.Model([iid, gen, yb, gv, pb], out, name="item_tower")
 
 
-def item_inputs(table: ItemTable, item_idx: np.ndarray, id_override: int | None = None) -> dict[str, np.ndarray]:
+def item_inputs(
+    table: ItemTable, item_idx: np.ndarray, id_override: int | None = None
+) -> dict[str, np.ndarray]:
     return {
-        "item_idx": (np.zeros_like(item_idx) if id_override == 0 else item_idx).astype(np.int64)[:, None],
+        "item_idx": (np.zeros_like(item_idx) if id_override == 0 else item_idx).astype(np.int64)[
+            :, None
+        ],
         "item_genres": table.genres[item_idx],
         "year_bucket": table.year_bucket[item_idx].astype(np.int64)[:, None],
         "genome": table.genome[item_idx],
@@ -105,9 +114,23 @@ class TwoTowerModel(tfrs.Model):
     def compute_loss(self, features, training=False):
         iid = features["item_idx"]
         uid = features["user_idx"]
-        iid_in = tf.where(tf.random.uniform(tf.shape(iid)) < self.p_item, tf.zeros_like(iid), iid) if training else iid
-        uid_in = tf.where(tf.random.uniform(tf.shape(uid)) < self.p_user, tf.zeros_like(uid), uid) if training else uid
-        u = self.user_tower({"user_idx": uid_in[:, None], "hist_items": features["hist_items"], "user_numeric": features["user_numeric"]})
+        iid_in = (
+            tf.where(tf.random.uniform(tf.shape(iid)) < self.p_item, tf.zeros_like(iid), iid)
+            if training
+            else iid
+        )
+        uid_in = (
+            tf.where(tf.random.uniform(tf.shape(uid)) < self.p_user, tf.zeros_like(uid), uid)
+            if training
+            else uid
+        )
+        u = self.user_tower(
+            {
+                "user_idx": uid_in[:, None],
+                "hist_items": features["hist_items"],
+                "user_numeric": features["user_numeric"],
+            }
+        )
         i = self.item_tower(
             {
                 "item_idx": iid_in[:, None], "item_genres": tf.gather(self.t_gen, iid),
@@ -115,7 +138,13 @@ class TwoTowerModel(tfrs.Model):
                 "genome": tf.gather(self.t_gv, iid), "pop_bucket": tf.gather(self.t_pb, iid)[:, None],
             }
         )  # fmt: skip
-        return self.task(u, i, candidate_sampling_probability=features["item_q"], candidate_ids=iid, compute_metrics=False)
+        return self.task(
+            u,
+            i,
+            candidate_sampling_probability=features["item_q"],
+            candidate_ids=iid,
+            compute_metrics=False,
+        )
 
 
 def make_dataset(arrs: dict[str, np.ndarray], batch: int, seed: int) -> tf.data.Dataset:
@@ -125,10 +154,16 @@ def make_dataset(arrs: dict[str, np.ndarray], batch: int, seed: int) -> tf.data.
             "hist_items": arrs["hist_items"].astype(np.int64), "user_numeric": arrs["user_numeric"], "item_q": arrs["item_q"],
         }
     )  # fmt: skip
-    return ds.shuffle(min(len(arrs["item_idx"]), 500_000), seed=seed).batch(batch, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
+    return (
+        ds.shuffle(min(len(arrs["item_idx"]), 500_000), seed=seed)
+        .batch(batch, drop_remainder=True)
+        .prefetch(tf.data.AUTOTUNE)
+    )
 
 
-def embed_items(item_tower, table: ItemTable, content_only_cold: bool = True, batch: int = 8192) -> np.ndarray:
+def embed_items(
+    item_tower, table: ItemTable, content_only_cold: bool = True, batch: int = 8192
+) -> np.ndarray:
     """(n+1, d) item embeddings. Items with zero positives so far are embedded from CONTENT ONLY
     (id := 0) so brand-new items can be indexed immediately. Row 0 is zeros."""
     n = table.n_items
@@ -159,8 +194,17 @@ def save_towers(user_tower, item_tower, out_dir) -> None:
 
 def load_towers(cfg, meta: dict, genre_matrix: np.ndarray, n_pop_buckets: int, out_dir):
     r = cfg["retrieval"]
-    ut = build_user_tower(meta["n_users"], meta["n_items"], genre_matrix, meta["history_len"], r["embedding_dim"], r["hidden"])
-    it = build_item_tower(meta["n_items"], meta["genome_dim"], n_pop_buckets, r["embedding_dim"], r["hidden"])
+    ut = build_user_tower(
+        meta["n_users"],
+        meta["n_items"],
+        genre_matrix,
+        meta["history_len"],
+        r["embedding_dim"],
+        r["hidden"],
+    )
+    it = build_item_tower(
+        meta["n_items"], meta["genome_dim"], n_pop_buckets, r["embedding_dim"], r["hidden"]
+    )
     ut.load_weights(str(out_dir / "user_tower.weights.h5"))
     it.load_weights(str(out_dir / "item_tower.weights.h5"))
     return ut, it

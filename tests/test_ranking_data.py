@@ -1,6 +1,5 @@
 import numpy as np
-
-from recsys.features.common import G, NUM_USER
+from recsys.features.common import NUM_USER, G
 from recsys.ranking.data import ABLATIONS, Layout, build_rank_train, candidate_dense, labels_for
 from recsys.retrieval import retrievers as R
 
@@ -23,13 +22,15 @@ def test_candidate_dense_values_hand_check(world):
     lay = Layout(world.cfg["features"]["genome_dim"])
     assert d.shape == (6, lay.dim)
     g = lay.groups
-    assert np.allclose(d[:, g["ret"][0]], scores.reshape(-1))                      # retrieval score column
-    assert np.allclose(d[:2, g["user_num"][0] : g["user_num"][1]], st.numeric[0])  # user feats repeated per candidate
+    assert np.allclose(d[:, g["ret"][0]], scores.reshape(-1))  # retrieval score column
+    assert np.allclose(
+        d[:2, g["user_num"][0] : g["user_num"][1]], st.numeric[0]
+    )  # user feats repeated per candidate
     assert np.allclose(d[0, g["item_gen"][0] : g["item_gen"][1]], t.genres[5])
     ug = d[0, g["user_gen"][0] : g["user_gen"][1]]
     overlap = d[0, g["cross"][0]]
     assert np.isclose(overlap, (ug * t.genres[5]).sum() / max(t.genres[5].sum(), 1))
-    assert d[0, g["ret"][0] + 1] < d[1, g["ret"][0] + 1]                          # rank feature increases with position
+    assert d[0, g["ret"][0] + 1] < d[1, g["ret"][0] + 1]  # rank feature increases with position
 
 
 def test_labels_for():
@@ -49,9 +50,16 @@ def test_build_rank_train_labels_and_pop_negatives(world):
         pass
 
     ret = Ret(lambda s: U[s.user_idx], E)
-    negs = pd.DataFrame({"user_idx": np.repeat(st.user_idx[:5], 3), "item_idx": np.tile([1, 2, 3], 5)})
-    rd = build_rank_train(ret, st, world.seen["rank"], world.tables["rank"], 20, negs, world.n_items)
-    assert rd.dense.shape[0] == len(rd.label) == len(rd.item_idx) == len(rd.group) and rd.dense.shape[0] >= 80 * 20
+    negs = pd.DataFrame(
+        {"user_idx": np.repeat(st.user_idx[:5], 3), "item_idx": np.tile([1, 2, 3], 5)}
+    )
+    rd = build_rank_train(
+        ret, st, world.seen["rank"], world.tables["rank"], 20, negs, world.n_items
+    )
+    assert (
+        rd.dense.shape[0] == len(rd.label) == len(rd.item_idx) == len(rd.group)
+        and rd.dense.shape[0] >= 80 * 20
+    )
     assert set(np.unique(rd.label)) <= {0.0, 1.0}
     # each user's retrieved candidates exclude seen items
     seen = world.seen["rank"]

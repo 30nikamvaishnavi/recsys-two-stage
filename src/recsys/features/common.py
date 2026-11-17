@@ -3,6 +3,7 @@
 Keeping these in ONE place avoids train/serve skew: the online gateway builds the ranker's dense
 vector with the same functions used to build the training set.
 """
+
 from __future__ import annotations
 
 import re
@@ -55,7 +56,9 @@ def user_numeric(n_prior, avg_rating, days_since) -> np.ndarray:
     n = np.asarray(n_prior, dtype=np.float32)
     r = np.nan_to_num(np.asarray(avg_rating, dtype=np.float32), nan=3.5)
     d = np.clip(np.nan_to_num(np.asarray(days_since, dtype=np.float32), nan=0.0), 0, None)
-    return np.stack([np.log1p(n) / 6.0, (r - 3.0) / 1.5, np.log1p(d) / 6.0], axis=1).astype(np.float32)
+    return np.stack([np.log1p(n) / 6.0, (r - 3.0) / 1.5, np.log1p(d) / 6.0], axis=1).astype(
+        np.float32
+    )
 
 
 def masked_mean(hist: np.ndarray, table: np.ndarray) -> np.ndarray:

@@ -1,4 +1,5 @@
 """TensorFlow / TFRS tests. Skipped automatically where TensorFlow is not installed (e.g. light CI)."""
+
 import numpy as np
 import pytest
 
@@ -6,16 +7,18 @@ tf = pytest.importorskip("tensorflow")
 pytest.importorskip("tensorflow_recommenders")
 
 from recsys.features.common import NUM_USER  # noqa: E402
+from recsys.features.state import examples_to_arrays  # noqa: E402
 from recsys.ranking import models as RM  # noqa: E402
 from recsys.ranking.data import ABLATIONS, Layout  # noqa: E402
 from recsys.retrieval import two_tower as tt  # noqa: E402
-from recsys.features.state import examples_to_arrays  # noqa: E402
 
 
 def small_towers(world):
     tab, N = world.tables["rank"], world.cfg["features"]["history_len"]
     ut = tt.build_user_tower(world.n_users, world.n_items, tab.genres, N, 16, [32])
-    it = tt.build_item_tower(world.n_items, world.cfg["features"]["genome_dim"], tab.n_pop_buckets, 16, [32])
+    it = tt.build_item_tower(
+        world.n_items, world.cfg["features"]["genome_dim"], tab.n_pop_buckets, 16, [32]
+    )
     return ut, it, tab, N
 
 
@@ -76,7 +79,13 @@ def test_ranker_learns_a_separable_signal(world):
     y = (d[:, lay.groups["cross"][0]] > 0).astype(np.float32)
     rd = RankData(d, rng.integers(1, world.n_items, 4000), y, np.arange(4000))
     m = RM.build_ranker("dcn_v2", lay, world.n_items, {**world.cfg["ranking"], "epochs": 8})
-    h = RM.fit_ranker(m, RankData(d[:3000], rd.item_idx[:3000], y[:3000], rd.group[:3000]), RankData(d[3000:], rd.item_idx[3000:], y[3000:], rd.group[3000:]), {**world.cfg["ranking"], "epochs": 8}, verbose=0)
+    h = RM.fit_ranker(
+        m,
+        RankData(d[:3000], rd.item_idx[:3000], y[:3000], rd.group[:3000]),
+        RankData(d[3000:], rd.item_idx[3000:], y[3000:], rd.group[3000:]),
+        {**world.cfg["ranking"], "epochs": 8},
+        verbose=0,
+    )
     assert max(h.history["val_auc"]) > 0.9
 
 
@@ -86,7 +95,11 @@ def test_onnx_export_matches_tf_and_writes_triton_config(world, tmp_path):
     from recsys.serving.export import export_onnx
 
     ut, it, tab, N = small_towers(world)
-    sample = {"user_idx": np.array([[1], [0]], np.int64), "hist_items": np.zeros((2, N), np.int64), "user_numeric": np.zeros((2, NUM_USER), np.float32)}
+    sample = {
+        "user_idx": np.array([[1], [0]], np.int64),
+        "hist_items": np.zeros((2, N), np.int64),
+        "user_numeric": np.zeros((2, NUM_USER), np.float32),
+    }
     meta = export_onnx(ut, tmp_path, "user_tower", sample)
     assert meta["max_abs_diff"] < 1e-3 and set(meta["inputs"]) == set(sample)
     cfg_txt = (tmp_path / "user_tower" / "config.pbtxt").read_text()

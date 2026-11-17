@@ -1,4 +1,5 @@
 """Download and verify MovieLens 25M (https://grouplens.org/datasets/movielens/25m/)."""
+
 from __future__ import annotations
 
 import hashlib
@@ -43,11 +44,18 @@ def download_movielens(cfg) -> Path:
         log.info("downloading %s (~250 MB)", cfg["data"]["url"])
         urllib.request.urlretrieve(cfg["data"]["url"], zip_path)
     try:  # GroupLens publishes an md5 next to the archive
-        expected = urllib.request.urlopen(cfg["data"]["url"] + ".md5", timeout=30).read().decode().split()[0]
+        expected = (
+            urllib.request.urlopen(cfg["data"]["url"] + ".md5", timeout=30)
+            .read()
+            .decode()
+            .split()[0]
+        )
         actual = _md5(zip_path)
         if expected != actual:
             zip_path.unlink()
-            raise RuntimeError(f"md5 mismatch: expected {expected}, got {actual}; re-run to re-download")
+            raise RuntimeError(
+                f"md5 mismatch: expected {expected}, got {actual}; re-run to re-download"
+            )
         log.info("md5 verified: %s", actual)
     except OSError as e:
         log.warning("could not fetch md5 for verification (%s); continuing", e)
@@ -65,7 +73,14 @@ def ensure_raw(cfg) -> Path:
         if not verify(d):
             s = cfg["data"]["synthetic"]
             log.info("generating synthetic MovieLens-format data in %s", d)
-            generate(d, s["n_users"], s["n_items"], s["n_tags"], s["mean_events"], seed=cfg["data"]["seed"])
+            generate(
+                d,
+                s["n_users"],
+                s["n_items"],
+                s["n_tags"],
+                s["mean_events"],
+                seed=cfg["data"]["seed"],
+            )
         return d
     return download_movielens(cfg)
 
