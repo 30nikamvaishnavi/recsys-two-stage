@@ -18,7 +18,7 @@ data:
   url: https://files.grouplens.org/datasets/movielens/ml-25m.zip
   positive_threshold: 4.0         # rating >= threshold => positive implicit feedback
   min_user_interactions: 5
-  user_sample_frac: 0.1           # SAMPLE mode: fraction of users kept (deterministic)
+  user_sample_frac: 0.2           # SAMPLE mode: fraction of users kept (deterministic)
   seed: 42
   synthetic: {n_users: 3000, n_items: 1500, n_tags: 40, mean_events: 55}
 
@@ -44,7 +44,7 @@ spark:
 retrieval:
   embedding_dim: 64
   hidden: [128]
-  epochs: 3
+  epochs: 5
   batch_size: 4096
   learning_rate: 0.002
   temperature: 0.05
@@ -74,10 +74,10 @@ ranking:
   item_emb_dim: 16
   cross_layers: 3
   mlp: [256, 128]
-  epochs: 3
+  epochs: 6
   batch_size: 2048
   learning_rate: 0.001
-  max_train_users: 10000
+  max_train_users: 30000
   eval_users: 10000
   ablations: [full, no_cross, no_retrieval_score, no_item_content, no_user_features]
 
@@ -127,7 +127,7 @@ modes:
     ranking: {n_candidates_train: 50, n_candidates_serve: 100, epochs: 3, batch_size: 512, mlp: [64, 32], eval_users: 600, max_train_users: 5000}
     abtest: {n_users: 600, n_bootstrap: 500}
   sample:
-    data: {dataset: movielens-25m, user_sample_frac: 0.1}
+    data: {dataset: movielens-25m, user_sample_frac: 0.2}
   full:
     data: {dataset: movielens-25m, user_sample_frac: 1.0}
     retrieval: {epochs: 8}
