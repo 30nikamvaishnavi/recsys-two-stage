@@ -27,6 +27,11 @@ def summarize(ds: Dataset) -> dict:
     n_users, n_items = len(ds.user_map), len(ds.items)
     return {
         "n_users": n_users, "n_items": n_items, "n_interactions": len(i),
+        "scale": {"users": n_users, "interactions": len(i), "epochs": 0},
+        "split_boundaries_utc": {
+            key: pd.to_datetime(value, unit="s", utc=True).isoformat()
+            for key, value in ds.boundaries.items()
+        },
         "sparsity": 1 - len(i) / (n_users * n_items),
         "rating_mean": float(i["rating"].mean()), "positive_rate": float(i["is_pos"].mean()),
         "interactions_per_user": {"median": float(per_user.median()), "p90": float(per_user.quantile(0.9)), "max": int(per_user.max())},

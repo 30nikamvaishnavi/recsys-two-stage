@@ -83,10 +83,21 @@ def test_targets_are_not_in_history_or_seen(world):
 
 
 def test_eda_summary_and_figures(world, tmp_path):
+    from datetime import datetime, timezone
+
     from recsys.eval.eda import make_figures, summarize
 
     s = summarize(world.ds)
     assert s["n_users"] == world.n_users and 0 < s["positive_rate"] < 1 and s["sparsity"] > 0.8
     assert s["cold_items_in_test_window_pct"] > 0 and s["top1pct_items_share"] > 0.01
+    assert s["scale"] == {
+        "users": world.n_users,
+        "interactions": len(world.ds.interactions),
+        "epochs": 0,
+    }
+    assert s["split_boundaries_utc"] == {
+        key: datetime.fromtimestamp(value, timezone.utc).isoformat()
+        for key, value in world.ds.boundaries.items()
+    }
     files = make_figures(world.ds, tmp_path)
     assert len(files) == 4 and all(f.stat().st_size > 1000 for f in files)
