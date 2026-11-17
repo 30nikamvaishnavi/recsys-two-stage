@@ -48,10 +48,11 @@ class L2Norm(keras.layers.Layer):
         return tf.math.l2_normalize(x, axis=-1)
 
 
-def _mlp(x, hidden, out_dim):
-    for h in hidden:
-        x = keras.layers.Dense(h, activation="relu")(x)
-    return L2Norm(name="embedding")(keras.layers.Dense(out_dim)(x))
+def _mlp(x, hidden, out_dim, name_prefix):
+    for i, h in enumerate(hidden):
+        x = keras.layers.Dense(h, activation="relu", name=f"{name_prefix}_hidden_{i}")(x)
+    x = keras.layers.Dense(out_dim, name=f"{name_prefix}_projection")(x)
+    return L2Norm(name=f"{name_prefix}_embedding")(x)
 
 
 def build_user_tower(
@@ -60,11 +61,17 @@ def build_user_tower(
     uid = keras.Input((1,), dtype=tf.int64, name="user_idx")
     hist = keras.Input((history_len,), dtype=tf.int64, name="hist_items")
     num = keras.Input((NUM_USER,), dtype=tf.float32, name="user_numeric")
-    u = keras.layers.Flatten()(keras.layers.Embedding(n_users + 1, dim)(uid))
-    h = MaskedMeanPool()([keras.layers.Embedding(n_items + 1, dim)(hist), hist])
-    g = keras.layers.Dense(32, activation="relu")(GenreAffinity(genre_matrix)(hist))
-    n = keras.layers.Dense(16, activation="relu")(num)
-    out = _mlp(keras.layers.Concatenate()([u, h, g, n]), hidden, dim)
+    u = keras.layers.Flatten(name="user_id_flatten")(
+        keras.layers.Embedding(n_users + 1, dim, name="user_id_embedding")(uid)
+    )
+    h = MaskedMeanPool(name="history_mean_pool")(
+        [keras.layers.Embedding(n_items + 1, dim, name="history_item_embedding")(hist), hist]
+    )
+    g = keras.layers.Dense(32, activation="relu", name="history_genre_dense")(
+        GenreAffinity(genre_matrix, name="history_genre_affinity")(hist)
+    )
+    n = keras.layers.Dense(16, activation="relu", name="user_numeric_dense")(num)
+    out = _mlp(keras.layers.Concatenate(name="user_features")([u, h, g, n]), hidden, dim, "user")
     return keras.Model([uid, hist, num], out, name="user_tower")
 
 
@@ -77,13 +84,19 @@ def build_item_tower(
     gv = keras.Input((genome_dim,), dtype=tf.float32, name="genome")
     pb = keras.Input((1,), dtype=tf.int64, name="pop_bucket")
     parts = [
-        keras.layers.Flatten()(keras.layers.Embedding(n_items + 1, dim)(iid)),
-        keras.layers.Dense(32, activation="relu")(gen),
-        keras.layers.Flatten()(keras.layers.Embedding(N_YEAR_BUCKETS, 8)(yb)),
-        keras.layers.Dense(32, activation="relu")(gv),
-        keras.layers.Flatten()(keras.layers.Embedding(n_pop_buckets + 1, 8)(pb)),
+        keras.layers.Flatten(name="item_id_flatten")(
+            keras.layers.Embedding(n_items + 1, dim, name="item_id_embedding")(iid)
+        ),
+        keras.layers.Dense(32, activation="relu", name="item_genre_dense")(gen),
+        keras.layers.Flatten(name="year_bucket_flatten")(
+            keras.layers.Embedding(N_YEAR_BUCKETS, 8, name="year_bucket_embedding")(yb)
+        ),
+        keras.layers.Dense(32, activation="relu", name="item_genome_dense")(gv),
+        keras.layers.Flatten(name="pop_bucket_flatten")(
+            keras.layers.Embedding(n_pop_buckets + 1, 8, name="pop_bucket_embedding")(pb)
+        ),
     ]
-    out = _mlp(keras.layers.Concatenate()(parts), hidden, dim)
+    out = _mlp(keras.layers.Concatenate(name="item_features")(parts), hidden, dim, "item")
     return keras.Model([iid, gen, yb, gv, pb], out, name="item_tower")
 
 

@@ -1,11 +1,13 @@
 import pytest
 
+pytest_plugins = ("test_pipeline",)
+
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
 pytest.importorskip("prometheus_client")
 from fastapi.testclient import TestClient  # noqa: E402
 from recsys.serving.api import create_app  # noqa: E402
-from test_pipeline import ext_id, make_rec, stack, warm_user  # noqa: E402,F401
+from test_pipeline import ext_id, make_rec, warm_user  # noqa: E402
 
 
 def client(stack):

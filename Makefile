@@ -1,7 +1,6 @@
 # Usage: make <target> [MODE=smoke|sample|full]
 MODE ?= sample
 export RECSYS_MODE=$(MODE)
-export TF_USE_LEGACY_KERAS=1
 PY ?= python
 ENGINE ?= spark
 

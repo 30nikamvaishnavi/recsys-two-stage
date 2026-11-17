@@ -78,12 +78,13 @@ def test_ranker_learns_a_separable_signal(world):
     d = rng.normal(size=(4000, lay.dim)).astype(np.float32)
     y = (d[:, lay.groups["cross"][0]] > 0).astype(np.float32)
     rd = RankData(d, rng.integers(1, world.n_items, 4000), y, np.arange(4000))
+    tf.keras.utils.set_random_seed(0)
     m = RM.build_ranker("dcn_v2", lay, world.n_items, {**world.cfg["ranking"], "epochs": 8})
     h = RM.fit_ranker(
         m,
         RankData(d[:3000], rd.item_idx[:3000], y[:3000], rd.group[:3000]),
         RankData(d[3000:], rd.item_idx[3000:], y[3000:], rd.group[3000:]),
-        {**world.cfg["ranking"], "epochs": 8},
+        {**world.cfg["ranking"], "epochs": 8, "batch_size": 128},
         verbose=0,
     )
     assert max(h.history["val_auc"]) > 0.9

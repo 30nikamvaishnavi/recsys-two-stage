@@ -46,9 +46,9 @@ class Outer(keras.layers.Layer):
 
 
 def _mlp(x, sizes, drop=0.1):
-    for s in sizes:
-        x = keras.layers.Dense(s, activation="relu")(x)
-        x = keras.layers.Dropout(drop)(x)
+    for i, s in enumerate(sizes):
+        x = keras.layers.Dense(s, activation="relu", name=f"deep_dense_{i}")(x)
+        x = keras.layers.Dropout(drop, name=f"deep_dropout_{i}")(x)
     return x
 
 
@@ -57,26 +57,36 @@ def build_ranker(
 ) -> keras.Model:
     idx = keras.Input((1,), dtype=tf.int64, name="item_idx")
     dense = keras.Input((layout.dim,), dtype=tf.float32, name="dense")
-    x = FeatureMask(layout.mask(drop_groups or []))(dense)
-    x0 = keras.layers.Concatenate()(
-        [x, keras.layers.Flatten()(keras.layers.Embedding(n_items + 1, rcfg["item_emb_dim"])(idx))]
+    x = FeatureMask(layout.mask(drop_groups or []), name="feature_mask")(dense)
+    item_emb = keras.layers.Embedding(n_items + 1, rcfg["item_emb_dim"], name="item_embedding")(idx)
+    x0 = keras.layers.Concatenate(name="model_features")(
+        [x, keras.layers.Flatten(name="item_embedding_flatten")(item_emb)]
     )
     deep = _mlp(x0, rcfg["mlp"])
     if kind == "dcn_v2":
         xl = x0
-        for _ in range(rcfg["cross_layers"]):
-            xl = CrossLayerV2()([x0, xl])
-        logit = keras.layers.Dense(1)(keras.layers.Concatenate()([xl, deep]))
-    elif kind == "wide_deep":
-        sl = lambda name: keras.layers.Lambda(
-            lambda t, a=layout.groups[name][0], b=layout.groups[name][1]: t[:, a:b]
-        )(
-            x
-        )  # noqa: E731
-        wide_in = keras.layers.Concatenate()(
-            [Outer()([sl("user_gen"), sl("item_gen")]), sl("item_gen")]
+        for i in range(rcfg["cross_layers"]):
+            xl = CrossLayerV2(name=f"cross_layer_{i}")([x0, xl])
+        logit = keras.layers.Dense(1, name="dcn_logit")(
+            keras.layers.Concatenate(name="cross_and_deep")([xl, deep])
         )
-        logit = keras.layers.Add()([keras.layers.Dense(1)(wide_in), keras.layers.Dense(1)(deep)])
+    elif kind == "wide_deep":
+
+        def sl(name, layer_name):
+            start, end = layout.groups[name]
+            return keras.layers.Lambda(lambda t, a=start, b=end: t[:, a:b], name=layer_name)(x)
+
+        user_gen = sl("user_gen", "user_genre_slice")
+        item_gen = sl("item_gen", "item_genre_slice")
+        wide_in = keras.layers.Concatenate(name="wide_features")(
+            [Outer(name="genre_outer")([user_gen, item_gen]), item_gen]
+        )
+        logit = keras.layers.Add(name="wide_deep_logit")(
+            [
+                keras.layers.Dense(1, name="wide_logit")(wide_in),
+                keras.layers.Dense(1, name="deep_logit")(deep),
+            ]
+        )
     else:
         raise ValueError(kind)
     return keras.Model(
