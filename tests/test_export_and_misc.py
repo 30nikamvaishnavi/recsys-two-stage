@@ -3,7 +3,19 @@ from recsys.config import load_config, path
 from recsys.promote import gate
 from recsys.serving.export import pbtxt
 from recsys.serving.state_store import UserStateStore  # noqa: F401
+from recsys.tracking import _Live
 from recsys.utils import percentiles, save_json
+
+
+def test_mlflow_metric_names_escape_at_sign():
+    class Recorder:
+        def log_metrics(self, metrics, step=None):
+            self.metrics = metrics
+            self.step = step
+
+    recorder = Recorder()
+    _Live(recorder).metrics({"val_recall@100": 0.5}, step=2)
+    assert recorder.metrics == {"val_recall_at_100": 0.5} and recorder.step == 2
 
 
 def test_pbtxt_contains_required_triton_settings():

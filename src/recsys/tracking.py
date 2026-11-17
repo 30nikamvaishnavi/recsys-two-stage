@@ -48,7 +48,11 @@ class _Live:
         self.m.log_params(flat)
 
     def metrics(self, d: dict, step: int | None = None):
-        clean = {k: float(v) for k, v in d.items() if isinstance(v, (int, float)) and v == v}
+        clean = {
+            str(k).replace("@", "_at_"): float(v)
+            for k, v in d.items()
+            if isinstance(v, (int, float)) and v == v
+        }
         self.m.log_metrics(clean, step=step)
 
     def artifact(self, p):
