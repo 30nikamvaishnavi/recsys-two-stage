@@ -29,18 +29,24 @@ def main():
         L += ["## Dataset\n", f"- users {ds['users']:,}, items {ds['items']:,}, interactions {ds['interactions']:,}, positive rate {ds['positive_rate']:.3f}",
               f"- interactions per time stage: {ds['per_stage']}\n"]  # fmt: skip
     r = _load(rd / "retrieval_metrics.json")
-    L.append("## Retrieval (time-based validation window, warm users)\n")
+    L.append("## Retrieval (time-based windows, warm users)\n")
     if r:
-        L += ["| model | recall@10 | recall@50 | recall@100 | NDCG@10 |", "|---|---|---|---|---|"]
-        for k, n in (
-            ("popularity", "Popularity"),
-            ("svd_mf", "SVD matrix factorisation"),
-            ("two_tower", "Two-tower (TFRS)"),
-        ):
-            m = r[k]
-            L.append(
-                f"| {n} | {f(m['recall@10'])} | {f(m['recall@50'])} | {f(m['recall@100'])} | {f(m['ndcg@10'])} |"
-            )
+        for split in ("val", "test"):
+            metrics = r.get(split, r)
+            L += [
+                f"### {split.title()} (selection uses validation only)\n",
+                "| model | recall@10 | recall@50 | recall@100 | NDCG@10 |",
+                "|---|---|---|---|---|",
+            ]
+            for k, n in (
+                ("popularity", "Popularity"),
+                ("svd_mf", "SVD matrix factorisation"),
+                ("two_tower", "Two-tower (TFRS)"),
+            ):
+                m = metrics[k]
+                L.append(
+                    f"| {n} | {f(m['recall@10'])} | {f(m['recall@50'])} | {f(m['recall@100'])} | {f(m['ndcg@10'])} |"
+                )
         c = r.get("cold_item_embeddings", {})
         if c.get("n_users"):
             L.append(
