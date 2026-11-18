@@ -142,3 +142,18 @@ def evaluate_retriever(
     st = states.subsample(max_users, seed)
     items, _ = retriever.retrieve(st, max(ks), seen)
     return evaluate_ranked(items, st.targets, ks)
+
+
+def evaluate_retriever_detailed(
+    retriever,
+    states: StateArrays,
+    seen,
+    ks=(10, 50, 100),
+    max_users: int | None = None,
+    seed: int = 0,
+):
+    from ..eval.metrics import evaluate_ranked_detailed
+
+    st = states.subsample(max_users, seed)
+    items, _ = retriever.retrieve(st, max(ks), seen)
+    return evaluate_ranked_detailed(items, st.targets, ks, n_bootstrap=2000, seed=seed)

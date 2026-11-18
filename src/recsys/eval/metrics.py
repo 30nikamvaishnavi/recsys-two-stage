@@ -24,10 +24,19 @@ def _n_rel(targets: list) -> np.ndarray:
 
 
 def recall_at_k(ranked, targets, k: int) -> float:
+    values = recall_per_user(ranked, targets, k)
+    return float(np.nanmean(values)) if np.isfinite(values).any() else float("nan")
+
+
+def recall_per_user(ranked, targets, k: int) -> np.ndarray:
     rel = _rel_matrix(ranked[:, :k], targets)
     n = _n_rel(targets)
-    ok = n > 0
-    return float((rel.sum(1)[ok] / n[ok]).mean()) if ok.any() else float("nan")
+    return np.divide(
+        rel.sum(1),
+        n,
+        out=np.full(len(n), np.nan, dtype=np.float64),
+        where=n > 0,
+    )
 
 
 def hit_at_k(ranked, targets, k: int) -> float:
@@ -69,6 +78,56 @@ def evaluate_ranked(ranked: np.ndarray, targets: list, ks=(10, 50, 100)) -> dict
     out["map@10"] = map_at_k(ranked, targets, 10)
     out["n_users"] = int(sum(1 for t in targets if len(t)))
     return out
+
+
+def evaluate_ranked_detailed(
+    ranked: np.ndarray,
+    targets: list,
+    ks=(10, 50, 100),
+    n_bootstrap: int = 2000,
+    seed: int = 0,
+) -> dict:
+    """Include per-user recall/NDCG and percentile bootstrap CIs in a ranked evaluation."""
+    out = evaluate_ranked(ranked, targets, ks)
+    out["per_user"] = {}
+    out["bootstrap_ci"] = {}
+    out["bootstrap_resamples"] = n_bootstrap
+    rng = np.random.default_rng(seed)
+
+    for k in ks:
+        recall = recall_per_user(ranked, targets, k)
+        ndcg = ndcg_per_user(ranked, targets, k)
+        valid = np.isfinite(recall) & np.isfinite(ndcg)
+        recall, ndcg = recall[valid], ndcg[valid]
+        out["per_user"][f"recall@{k}"] = recall.tolist()
+        out["per_user"][f"ndcg@{k}"] = ndcg.tolist()
+        out["bootstrap_ci"][f"recall@{k}"], out["bootstrap_ci"][f"ndcg@{k}"] = _bootstrap_mean_ci(
+            recall, ndcg, n_bootstrap, rng
+        )
+    return out
+
+
+def _bootstrap_mean_ci(
+    first: np.ndarray, second: np.ndarray, n_bootstrap: int, rng: np.random.Generator
+) -> tuple[dict[str, float], dict[str, float]]:
+    if not len(first):
+        nan_ci = {"ci_low": float("nan"), "ci_high": float("nan")}
+        return nan_ci.copy(), nan_ci.copy()
+
+    means_first = np.empty(n_bootstrap, dtype=np.float64)
+    means_second = np.empty(n_bootstrap, dtype=np.float64)
+    batch_size = min(128, n_bootstrap)
+    for start in range(0, n_bootstrap, batch_size):
+        stop = min(start + batch_size, n_bootstrap)
+        sample = rng.integers(0, len(first), size=(stop - start, len(first)))
+        means_first[start:stop] = first[sample].mean(axis=1)
+        means_second[start:stop] = second[sample].mean(axis=1)
+
+    def ci(values: np.ndarray) -> dict[str, float]:
+        low, high = np.percentile(values, [2.5, 97.5])
+        return {"ci_low": float(low), "ci_high": float(high)}
+
+    return ci(means_first), ci(means_second)
 
 
 def auc_score(y, p) -> float:
