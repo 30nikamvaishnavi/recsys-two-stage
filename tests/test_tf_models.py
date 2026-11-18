@@ -53,6 +53,30 @@ def test_two_tower_training_step_runs_and_loss_is_finite(world):
     assert all(np.isfinite(hist.history["loss"]))
 
 
+def test_logq_correction_changes_retrieval_loss(world):
+    ut, it, tab, N = small_towers(world)
+    u, i, h, num = examples_to_arrays(world.train_ex.head(128), N)
+    arrs = {
+        "user_idx": u,
+        "item_idx": i,
+        "hist_items": h,
+        "user_numeric": num,
+        "item_q": np.linspace(1e-4, 0.2, len(i), dtype=np.float32),
+    }
+    features = next(iter(tt.make_dataset(arrs, 128, 0)))
+    cfg_on = world.cfg.to_dict()
+    cfg_off = world.cfg.to_dict()
+    cfg_off["retrieval"]["logq_correction"] = False
+    corrected = tt.TwoTowerModel(ut, it, tab, cfg_on)
+    uncorrected = tt.TwoTowerModel(ut, it, tab, cfg_off)
+
+    loss_on = corrected.compute_loss(features, training=False)
+    loss_off = uncorrected.compute_loss(features, training=False)
+
+    assert np.isfinite(loss_on.numpy()) and np.isfinite(loss_off.numpy())
+    assert not np.isclose(loss_on.numpy(), loss_off.numpy())
+
+
 @pytest.mark.parametrize("kind", ["wide_deep", "dcn_v2"])
 def test_rankers_forward_and_ablation_mask(world, kind):
     lay = Layout(world.cfg["features"]["genome_dim"])

@@ -48,6 +48,7 @@ retrieval:
   batch_size: 4096
   learning_rate: 0.002
   temperature: 0.05
+  logq_correction: true
   item_id_dropout: 0.2        # trains the content-only path used for cold items
   user_id_dropout: 0.3        # trains the no-user-id path used for cold users
   eval_users: 20000

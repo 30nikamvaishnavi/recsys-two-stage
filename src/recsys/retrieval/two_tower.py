@@ -122,6 +122,7 @@ class TwoTowerModel(tfrs.Model):
         self.p_item, self.p_user = r["item_id_dropout"], r["user_id_dropout"]
         self.t_gen, self.t_yb = tf.constant(table.genres), tf.constant(table.year_bucket, tf.int64)
         self.t_gv, self.t_pb = tf.constant(table.genome), tf.constant(table.pop_bucket, tf.int64)
+        self.logq_correction = r["logq_correction"]
         self.task = tfrs.tasks.Retrieval(temperature=r["temperature"], remove_accidental_hits=True)
 
     def compute_loss(self, features, training=False):
@@ -151,13 +152,10 @@ class TwoTowerModel(tfrs.Model):
                 "genome": tf.gather(self.t_gv, iid), "pop_bucket": tf.gather(self.t_pb, iid)[:, None],
             }
         )  # fmt: skip
-        return self.task(
-            u,
-            i,
-            candidate_sampling_probability=features["item_q"],
-            candidate_ids=iid,
-            compute_metrics=False,
-        )
+        task_args = {"candidate_ids": iid, "compute_metrics": False}
+        if self.logq_correction:
+            task_args["candidate_sampling_probability"] = features["item_q"]
+        return self.task(u, i, **task_args)
 
 
 def make_dataset(arrs: dict[str, np.ndarray], batch: int, seed: int) -> tf.data.Dataset:
