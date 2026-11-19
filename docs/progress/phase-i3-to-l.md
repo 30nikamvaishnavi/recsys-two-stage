@@ -37,7 +37,30 @@
 
 ## Phase (i-4): Compose
 
-Pending.
+### Files changed
+
+- [`phase-i3-to-l.md`](./phase-i3-to-l.md) — updated for phase (i-4). No Compose configuration was changed.
+
+### Commands and exit codes
+
+- `cd ~/recsys-two-stage && source .venv/bin/activate && docker compose config --quiet 2>&1 | cut -c1-200` — exit 0; no warnings or errors were printed.
+- Two-minute observation of Redis, Triton, and API container health — exit 0; all remained healthy for 121.8 seconds across 12 checks.
+- `docker stats --no-stream` snapshot — exit 0.
+
+### Measured memory snapshot
+
+Source: `docker stats --no-stream`, observed once after the two-minute stability check.
+
+- API: `231.8MiB / 1.465GiB` limit.
+- Redis: `7.539MiB / 320MiB` limit.
+- Triton: `118.1MiB / 2GiB` limit.
+
+MLflow is optional and was not started or tested.
+
+### NOT VERIFIED
+
+- MLflow host access and artifact-root behavior.
+- Long-duration stability beyond the observed two-minute interval.
 
 ## Phase (j): Airflow
 
