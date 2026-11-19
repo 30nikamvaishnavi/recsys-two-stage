@@ -26,7 +26,7 @@ def load_recommender(
     meta = load_json(s / "assets_meta.json")
     table = ItemTable.load(s / "item_table.npz")
     store = UserStateStore(
-        pd.read_parquet(s / "user_map.parquet"), pd.read_parquet(s / "user_states.parquet"), sp.load_npz(s / "seen.npz").tocsr(),
+        pd.read_parquet(s / "user_map.parquet"), pd.read_parquet(s / ("user_states_all.parquet" if (s / "user_states_all.parquet").exists() else "user_states.parquet")), sp.load_npz(s / "seen.npz").tocsr(),
         meta["history_len"], meta["cutoff_ts"], meta["positive_threshold"],
     )  # fmt: skip
     c = cfg["coldstart"]

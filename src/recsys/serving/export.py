@@ -96,6 +96,14 @@ def export_assets(cfg, fs: FeatureStore, sdir: Path) -> None:
     pd.read_parquet(Path(path(cfg, "features")) / "user_state_test.parquet").to_parquet(
         sdir / "user_states.parquet", index=False
     )
+    from .all_states import user_state_all
+
+    everyone = user_state_all(
+        fs.interactions(["user_idx", "item_idx", "rating", "ts", "is_pos"]),
+        fs.cutoff("test"),
+        fs.N,
+    )
+    everyone.to_parquet(sdir / "user_states_all.parquet", index=False)
     seen = fs.seen("test")
     sp.save_npz(sdir / "seen.npz", seen.m)
     save_json(
