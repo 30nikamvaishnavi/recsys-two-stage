@@ -2,8 +2,12 @@
 
 An end-to-end, production-style recommender in the architecture used by Netflix/Amazon:
 **stage 1** quickly retrieves a few hundred candidates with a two-tower model + FAISS, **stage 2** re-scores them with a deep
-ranking model; cold-start fallbacks, Redis caching, Triton serving, Airflow retraining with an evaluation gate and a (simulated)
-online A/B test between two rankers.
+ranking model; cold-start fallbacks, Redis caching, Triton serving, Airflow retraining with an evaluation gate and a
+simulated A/B test between two rankers.
+
+**Project page:** [30nikamvaishnavi.github.io/recsys-two-stage](https://30nikamvaishnavi.github.io/recsys-two-stage/).
+This is a static GitHub Pages overview, not a hosted interactive recommender; the application stack currently runs locally
+with Docker Compose. See the [phase progress log](docs/progress/phase-i3-to-l.md) for what has and has not been verified.
 
 | Layer | Tech |
 |---|---|
@@ -24,12 +28,14 @@ make smoke                 # whole pipeline on synthetic data in minutes -> prov
 # real run (20% of MovieLens 25M users by default):
 make data features train   # download+split -> Spark features -> retrieval, FAISS, rankers, cold start
 make export                # ONNX + Triton repository + serving assets
-make abtest report         # simulated A/B, writes docs/results_sample.md
 docker compose up --build  # Redis + Triton + API + MLflow + Streamlit + Airflow
 ```
 Then: API docs http://localhost:8080/docs · demo http://localhost:8501 · MLflow :5000 · Airflow :8081.
 `MODE=full` uses all 25M ratings; `ENGINE=pandas` swaps Spark for the pandas engine if Java is unavailable.
-Load test: `make load-test`; cache benchmark: `make cache-bench`.
+The phase (k) A/B simulation and load test are currently **not verified**; their earlier results are invalid and must not
+be cited. Do not rerun or publish those results until the sample models have been re-exported and the in-process A/B has
+been rerun. See the [phase (k) status](docs/progress/phase-i3-to-l.md).
+Cache benchmark: `make cache-bench`.
 
 ## Repository layout
 ```
@@ -39,9 +45,13 @@ tests/ (pytest)         scripts/ (load test, cache bench, report, cache warming)
 ```
 
 ## Results
-Run `make report`; it generates `docs/results_<mode>.md` from `artifacts/reports/` (retrieval vs baselines, FAISS trade-off,
-ranker vs retrieval-only + ablation + calibration, cold-start curve, A/B with 95% CIs, load/cache numbers).
-**Paste your real numbers here after running** - this README intentionally contains none that were not measured on your machine.
+`make report` generates `docs/results_<mode>.md` from `artifacts/reports/` (retrieval vs baselines, FAISS trade-off,
+ranker vs retrieval-only + ablation + calibration, cold-start curve, simulated A/B, and load/cache measurements).
+The existing phase (k) A/B and load-test output is invalid because the shared model repository held SMOKE-mode ONNX
+models during the sample run; do not cite or reuse those A/B/load-test values. The generated sample report marks these
+sections as **NOT VERIFIED**. Do not regenerate or publish the sample report until verified A/B and load-test results
+are available, because the current report inputs still contain the invalid run. See the
+[phase progress log](docs/progress/phase-i3-to-l.md) for details.
 
 ## Correctness guarantees (tested on synthetic data; items marked * need TF/Spark and are verified by `make smoke`)
 - Time-based split; **counterfactual leakage tests**: rewriting the future leaves every feature unchanged.

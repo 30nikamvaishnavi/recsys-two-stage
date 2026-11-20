@@ -64,11 +64,21 @@ MLflow is optional and was not started or tested.
 
 ## Phase (j): Airflow
 
-Pending.
+The DAG import check reported "No data found" and no errors. The evaluation gate returned exit 0 for a better candidate and exit 1 for a worse candidate; both outcomes were tested. The user is checking the full container run separately.
+
+### NOT VERIFIED
+
+- full airflow dags test in the container not completed
 
 ## Phase (k): A/B SIMULATION, load test, latency chart
 
-Any A/B output must say **SIMULATION, no real users**. No A/B or load test has been run in this phase yet.
+Any A/B output must say **SIMULATION, no real users**.
+
+### NOT VERIFIED
+
+- The previous sample A/B and load-test results are **INVALID** and must not be used or repeated in any documentation. The shared `model_repository/` contained SMOKE-mode ONNX models (genre table: 1,498 rows; user table: 3,001 rows), not the sample models. Both A/B arms therefore fell back to popularity, so the comparison and associated load-test measurements do not represent the intended sample two-stage serving path.
+- The user is re-exporting the sample models with `make MODE=sample export` and will rerun the in-process A/B separately. Do not rerun phase (k) or change serving code before the user reports that result.
+- Validity of any new A/B comparison and load-test measurements.
 
 ## Phase (l): Streamlit
 
