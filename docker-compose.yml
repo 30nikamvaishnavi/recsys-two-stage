@@ -45,6 +45,7 @@ services:
   airflow:
     build: {context: ., dockerfile: docker/Dockerfile.airflow}
     command: ["airflow", "standalone"]
+    user: "${AIRFLOW_UID:-50000}:0"
     environment:
       RECSYS_MODE: *mode
       RECSYS_HOME: /opt/recsys
