@@ -6,8 +6,9 @@ ranking model; cold-start fallbacks, Redis caching, Triton serving, Airflow retr
 simulated A/B test between two rankers.
 
 **Project page:** [30nikamvaishnavi.github.io/recsys-two-stage](https://30nikamvaishnavi.github.io/recsys-two-stage/).
-This is a static GitHub Pages overview, not a hosted interactive recommender; the application stack currently runs locally
-with Docker Compose. See the [phase progress log](docs/progress/phase-i3-to-l.md) for what has and has not been verified.
+GitHub Pages publishes from `docs/`; this is a static project overview, not a hosted interactive recommender. The
+application stack currently runs locally with Docker Compose. See the [project summary](docs/project_summary.md) and
+[phase progress log](docs/progress/phase-i3-to-l.md) for details and verification status.
 
 | Layer | Tech |
 |---|---|
@@ -62,4 +63,4 @@ are available, because the current report inputs still contain the invalid run. 
 
 ## Honest scope notes
 The A/B test is a **simulation** (no real users) - see `docs/limitations_and_next_steps.md`. Cold start for *items* happens at
-index-build time. Docs: `architecture.md`, `api.md`, `data_dictionary.md`, `presentation_outline.md`, `reflection_template.md`.
+index-build time. Docs: `project_summary.md`, `architecture.md`, `api.md`, `data_dictionary.md`, `presentation_outline.md`, `reflection_template.md`.

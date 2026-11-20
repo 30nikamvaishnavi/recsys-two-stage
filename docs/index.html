@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Project overview for a two-stage MovieLens recommendation system.">
+    <title>Two-Stage Recommendation Engine</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #172033;
+        background: #f5f7fb;
+      }
+      body {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 48px 24px;
+        line-height: 1.6;
+      }
+      header, main {
+        padding: 28px;
+        background: #fff;
+        border: 1px solid #dfe5ef;
+        border-radius: 12px;
+      }
+      main { margin-top: 20px; }
+      h1, h2 { line-height: 1.2; }
+      a { color: #1456a0; }
+      .notice {
+        padding: 12px 16px;
+        border-left: 4px solid #b7791f;
+        background: #fff8e6;
+      }
+      @media (max-width: 600px) {
+        body { padding: 20px 12px; }
+        header, main { padding: 20px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Large-Scale Personalized Recommendation Engine</h1>
+      <p>
+        A CPU-oriented, two-stage MovieLens recommender: two-tower retrieval with FAISS followed by
+        DCN-V2 or Wide &amp; Deep ranking.
+      </p>
+      <p>
+        This GitHub Pages site is a static project overview. The interactive Streamlit, FastAPI, Triton,
+        and Redis application is not hosted on GitHub Pages.
+      </p>
+    </header>
+    <main>
+      <h2>Project</h2>
+      <p>
+        The pipeline uses time-based data splits, point-in-time features, candidate retrieval, ranking,
+        cold-start fallbacks, and CPU ONNX serving. It also includes Redis caching, an Airflow retraining
+        workflow with an evaluation gate, and a simulated A/B test.
+      </p>
+
+      <h2>Project links</h2>
+      <ul>
+        <li><a href="project_summary.html">Project summary</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="api.html">API documentation</a></li>
+        <li><a href="setup_wsl2.html">Run the application locally</a></li>
+        <li><a href="progress/phase-i3-to-l.html">Phase progress and verification status</a></li>
+        <li><a href="results_sample.html">Sample results</a></li>
+        <li><a href="https://github.com/30nikamvaishnavi/recsys-two-stage">Source repository</a></li>
+      </ul>
+
+      <h2>Verification notice</h2>
+      <p class="notice">
+        The earlier sample A/B simulation and load-test results are invalid: SMOKE-mode ONNX models were in the
+        shared model repository, and both A/B arms fell back to popularity. Those results are not reported here.
+        Any A/B test in this project is a simulation with no real users.
+      </p>
+    </main>
+  </body>
+</html>
